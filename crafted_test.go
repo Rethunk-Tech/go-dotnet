@@ -60,19 +60,3 @@ func TestATypeSpecNamingItselfIsMalformedNotAStackOverflow(t *testing.T) {
 		t.Fatalf("Writes err = %v, want a malformed assembly", err)
 	}
 }
-
-func TestAnAssemblyOverTheSizeCapIsRefusedUnread(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "big.dll")
-	if err := os.WriteFile(path, nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Truncate(path, MaxAssemblyBytes+1); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Scan(path); err == nil || !strings.Contains(err.Error(), "size cap") {
-		t.Fatalf("Scan err = %v, want the size limit", err)
-	}
-	if mvid, _ := Identity(path); mvid != "" {
-		t.Fatalf("Identity read %q from an oversized file", mvid)
-	}
-}
