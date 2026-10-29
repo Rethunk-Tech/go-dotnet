@@ -11,8 +11,8 @@
 
 A reader for compiled .NET assemblies: ECMA-335 metadata, IL method bodies, portable PDB sequence points and the Harmony, BepInEx and MelonLoader attributes, with no runtime and no reflection. Package `dotnet`, module `github.com/Rethunk-Tech/go-dotnet`.
 
-<!-- scaffold: one short paragraph on what the package guarantees and why it exists, in plain
-words. -->
+Every query takes a path and returns an error, never a panic, for a truncated or crafted image. Reads are capped and
+never truncated. Nothing runs and nothing is loaded.
 
 ## Quick start
 
@@ -24,7 +24,11 @@ A worked example and the contracts: [HUMANS.md](HUMANS.md).
 
 ## Features
 
-<!-- scaffold: 3 to 6 bullets, each a capability a caller can rely on. No roadmap. -->
+- BepInEx 5 plugin identity and dependencies (`Scan`), Harmony patches (`Patches`), MelonLoader info and order.
+- Which game members a mod assigns (`Writes`), its members (`Members`) and who calls one (`Usages`).
+- Module id and source line for a stack frame (`Identity`, `SourceLine`), from embedded or sibling portable PDBs.
+- Crafted-input safe: panics become `ErrMalformed`, type-chain cycles are bounded, size caps are errors.
+- Standard library only.
 
 ## Documentation
 

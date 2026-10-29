@@ -14,10 +14,15 @@ Please do not open a public issue for a suspected vulnerability first.
 
 ## What is in scope
 
-<!-- scaffold: the untrusted inputs this package handles, and each property a crafted input must not
-break (an escape, an unbounded allocation, a panic). One bullet each, naming the API. -->
+- The assembly file given to any query: a crafted image must not panic (`ErrMalformed`), overflow the stack (TypeRef
+  and TypeSpec chains are bounded), or allocate unboundedly (reads are capped at `MaxAssemblyBytes`, relations at 1024).
+- The sibling or embedded portable PDB read by `SourceLine` and `Identity`: refused over `MaxPDBBytes`, and an embedded
+  one must inflate to exactly its stated size.
+- The path itself: opened inside its directory, so a final-element symlink cannot leave it.
 
 ## What is out of scope
 
-<!-- scaffold: what the caller is trusted to have checked already, and behaviour that is intended
-rather than a vulnerability. -->
+- Deciding whether an assembly is trusted: the module reads, it does not load or execute, and says nothing about
+  what the code does.
+- A parent-directory symlink in the path: only the final element is confined.
+- Wrong but well-formed metadata: results describe what the image claims.

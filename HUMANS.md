@@ -8,13 +8,44 @@ Run and use `go-dotnet`. Internals: [AGENTS.md](AGENTS.md).
 go get github.com/Rethunk-Tech/go-dotnet
 ```
 
-<!-- scaffold: the smallest complete Go example of the main entry point, compiled in your head
-against the real API: imports implied, errors handled. -->
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/Rethunk-Tech/go-dotnet"
+)
+
+func main() {
+	d, err := dotnet.Scan(os.Args[1])
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, p := range d.Plugins {
+		fmt.Println(p.GUID, p.Name, p.Version)
+	}
+	for _, r := range d.Relations {
+		fmt.Println(r.Plugin, r.Kind, r.GUID, r.MinVersion)
+	}
+}
+```
 
 ## Contracts
 
-<!-- scaffold: a two-column table, one row per exported entry point or behaviour a caller depends
-on: what it refuses, what it guarantees on failure, what it never does. -->
+| Entry point | Contract |
+| --- | --- |
+| every query | takes a path; a crafted image returns an error wrapping `ErrMalformed`, never a panic |
+| every query | refuses a file over `MaxAssemblyBytes` unread (`ErrTooLarge`); a non-assembly is `ErrNotAssembly` |
+| `Scan` | BepInEx 5 `[BepInPlugin]` and `[BepInDependency]`/`[BepInIncompatibility]`, at most 1024 relations |
+| `Patches`, `PatchKindByName` | Harmony patch targets and kinds from attributes and naming convention |
+| `Writes` | members of the `game` namespace the IL assigns; the output text is stable |
+| `Members`, `Usages` | method and field listing; the call sites of one member |
+| `Identity`, `SourceLine` | MVID and symbol kind; `file.cs:line` from a portable PDB, `""` when stale or absent; a sibling PDB over `MaxPDBBytes` is an error |
+| `ScanMelon`, `MelonOrder` | MelonLoader attributes; load order, pure on its input |
+| any path | opened inside its own directory: a final-element symlink out of it is refused |
 
 ## Requirements
 

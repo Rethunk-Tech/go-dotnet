@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Rebuilds ../mod.dll, the compiled fixture the reader's tests read, ../embedded.dll, the same with its symbols embedded, ../portable/Mod.{dll,pdb} with them beside it. The game stand-in is built only to compile against.
+set -euo pipefail
+cd "$(dirname "$0")"
+out=$(mktemp -d "${TMPDIR:-/var/tmp}/dotnet-fixture.XXXXXX")
+trap 'rm -rf "$out" Game/obj Mod/obj' EXIT
+# Every dotnet invocation leaves an empty dir in TMPDIR, so it gets one that goes with $out.
+mkdir "$out/tmp"
+export TMPDIR="$out/tmp"
+dotnet build Mod/Mod.csproj -c Release -o "$out" -p:Deterministic=true -p:DebugType=none -nologo -v quiet
+cp "$out/Mod.dll" ../mod.dll
+dotnet build Mod/Mod.csproj -c Release -o "$out/embedded" -p:Deterministic=true -p:DebugType=embedded -nologo -v quiet
+cp "$out/embedded/Mod.dll" ../embedded.dll
+dotnet build Mod/Mod.csproj -c Release -o "$out/portable" -p:Deterministic=true -p:DebugType=portable -nologo -v quiet
+mkdir -p ../portable
+cp "$out/portable/Mod.dll" "$out/portable/Mod.pdb" ../portable/
