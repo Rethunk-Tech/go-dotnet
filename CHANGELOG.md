@@ -6,6 +6,8 @@ Notable changes to `go-dotnet`. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-29
+
 ### Added
 
 - Queries over compiled .NET assemblies: `Scan`, `Patches`, `PatchKindByName`, `Writes`, `Members`, `Usages`, `Identity`,
@@ -13,4 +15,5 @@ Notable changes to `go-dotnet`. The format follows
 - `ErrNotAssembly`, `ErrMalformed`, `ErrTooLarge` and the `MaxAssemblyBytes` and `MaxPDBBytes` caps.
 - Fuzz targets for the metadata reader, the attribute blobs and the portable PDB reader.
 
-[Unreleased]: https://github.com/Rethunk-Tech/go-dotnet/commits/main
+[Unreleased]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Rethunk-Tech/go-dotnet/releases/tag/v0.1.0
