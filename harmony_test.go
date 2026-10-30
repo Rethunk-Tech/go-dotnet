@@ -28,3 +28,11 @@ func TestPatchesReadsHarmonyAttributes(t *testing.T) {
 		t.Fatalf("patches = %v\nwant      %v", got, want)
 	}
 }
+
+func TestPatchKindByName(t *testing.T) {
+	for name, want := range map[string]string{"Prefix": PatchPrefix, "HarmonyFinalizer": "", "Other": ""} {
+		if got := PatchKindByName(name); got != want {
+			t.Errorf("%s: %q, want %q", name, got, want)
+		}
+	}
+}
