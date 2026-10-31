@@ -21,9 +21,9 @@ func TestIdentityReadsTheMVIDAndWhichSymbolsShip(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, c := range []struct{ path, mvid, symbols string }{
-		{filepath.Join("testdata", "mod.dll"), "5fbed16890e94601b0c1d6bd5787551f", ""},
-		{filepath.Join("testdata", "embedded.dll"), "bae0cdbd54c4427189879800db2c4c0e", SymbolsPortable},
-		{windows, "5fbed16890e94601b0c1d6bd5787551f", SymbolsWindows},
+		{filepath.Join("testdata", "mod.dll"), "eec5a7c6fa6a46d2810a8229313669b6", ""},
+		{filepath.Join("testdata", "embedded.dll"), "54e69d481c6d43c89e5ad0886fffd189", SymbolsPortable},
+		{windows, "eec5a7c6fa6a46d2810a8229313669b6", SymbolsWindows},
 	} {
 		if mvid, symbols := Identity(c.path); mvid != c.mvid || symbols != c.symbols {
 			t.Errorf("%s: %q %q, want %q %q", c.path, mvid, symbols, c.mvid, c.symbols)
