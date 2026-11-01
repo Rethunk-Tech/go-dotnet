@@ -10,6 +10,8 @@ Notable changes to `go-dotnet`. The format follows
 
 - `Settings`: the BepInEx config entries a plugin binds with a constant section, key and default, read from its IL,
   with the description, range, enum names and any ConfigSync or CSync sync level.
+- `Member.Types` and `Member.Returns`: a method's parameter types and return type, or a field's type, as C# writes
+  them.
 
 ## [0.1.0] - 2026-10-29
 

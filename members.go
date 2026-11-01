@@ -16,6 +16,10 @@ type Member struct {
 	// Void is set when the method returns nothing.
 	Void   bool     `json:"void"`
 	Params []string `json:"params"`
+	// Types are the parameters' types as C# writes them, in Params' order; Returns is the method's return type, or a
+	// field's type ("void", "int", "GameNetcodeStuff.PlayerControllerB", "List<Tile>").
+	Types   []string `json:"types"`
+	Returns string   `json:"returns"`
 }
 
 const (
@@ -41,7 +45,9 @@ func members(m *assembly) (out []Member, err error) {
 		}
 		for f := range m.fieldsOf(t) {
 			if name := m.str(m.cell(tField, f, 1)); !strings.Contains(name, "<") {
-				out = append(out, Member{Type: typ, Kind: "field", Method: name, Static: m.cell(tField, f, 0)&fieldStatic != 0, Params: []string{}})
+				names := sigNames{m: m, outer: outer, typ: t}
+				returns, _ := names.csType(m.blob(m.cell(tField, f, 2))[1:], 0)
+				out = append(out, Member{Type: typ, Kind: "field", Method: name, Static: m.cell(tField, f, 0)&fieldStatic != 0, Params: []string{}, Types: []string{}, Returns: returns})
 			}
 		}
 		for md := range m.methodsOf(t) {
@@ -49,13 +55,17 @@ func members(m *assembly) (out []Member, err error) {
 			if strings.Contains(name, "<") {
 				continue
 			}
+			sig := m.blob(m.cell(tMethodDef, md, 4))
+			returns, types := sigNames{m: m, outer: outer, typ: t, method: md}.methodTypes(sig)
 			out = append(out, Member{
-				Type:   typ,
-				Kind:   "method",
-				Method: name,
-				Static: m.cell(tMethodDef, md, 2)&methodStatic != 0,
-				Void:   returnType(m.blob(m.cell(tMethodDef, md, 4))) == elementVoid,
-				Params: m.paramNames(md),
+				Type:    typ,
+				Types:   types,
+				Returns: returns,
+				Kind:    "method",
+				Method:  name,
+				Static:  m.cell(tMethodDef, md, 2)&methodStatic != 0,
+				Void:    returnType(m.blob(m.cell(tMethodDef, md, 4))) == elementVoid,
+				Params:  m.paramNames(md),
 			})
 		}
 	}

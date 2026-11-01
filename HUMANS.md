@@ -42,7 +42,7 @@ func main() {
 | `Scan` | BepInEx 5 `[BepInPlugin]` and `[BepInDependency]`/`[BepInIncompatibility]`, at most 1024 relations |
 | `Patches`, `PatchKindByName` | Harmony patch targets and kinds from attributes and naming convention |
 | `Writes` | members of the `game` namespace the IL assigns; the output text is stable |
-| `Members`, `Usages` | method and field listing; the call sites of one member |
+| `Members`, `Usages` | method and field listing with parameter, return and field types as C# writes them; the call sites of one member |
 | `Settings` | the BepInEx config entries a plugin binds with constants: default as the .cfg writes it, description, range, enum names, ConfigSync or CSync level |
 | `Identity`, `SourceLine` | MVID and symbol kind; `file.cs:line` from a portable PDB, `""` when stale or absent; a sibling PDB over `MaxPDBBytes` is an error |
 | `ScanMelon`, `MelonOrder` | MelonLoader attributes; load order, pure on its input |
