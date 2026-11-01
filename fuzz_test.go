@@ -32,6 +32,7 @@ func FuzzAssembly(f *testing.F) {
 		_, _ = Patches(path)
 		_, _ = Members(path)
 		_, _ = Usages(path, "StardewValley.Farmer::currentToolIndex")
+		_, _ = Settings(path)
 		_, _ = ScanMelon(path)
 		_, _ = Identity(path)
 		_ = SourceLine(path, "Fixture.Mod::SwitchTool", -1, 0x1c)

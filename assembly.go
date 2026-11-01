@@ -42,6 +42,7 @@ const (
 	tMethodDef   = 0x06
 	tParam       = 0x08
 	tMemberRef   = 0x0A
+	tConstant    = 0x0B
 	tCustomAttr  = 0x0C
 	tDeclSec     = 0x0E
 	tStandAlone  = 0x11
@@ -161,6 +162,7 @@ type assembly struct {
 	sections []*pe.Section
 	strings  []byte
 	blobs    []byte
+	us       []byte
 	guids    []byte
 	debug    []byte
 	rows     [tableCount]int
@@ -318,6 +320,8 @@ func parse(data []byte) (*assembly, error) {
 			m.strings = body
 		case "#Blob":
 			m.blobs = body
+		case "#US":
+			m.us = body
 		case "#GUID":
 			m.guids = body
 		}

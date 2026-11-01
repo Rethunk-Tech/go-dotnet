@@ -36,6 +36,7 @@ cannot resolve that check from PATH. No code is OS-specific; the
 | `harmony.go` | `Patches`, `PatchKindByName`, Harmony attribute blobs |
 | `members.go` | `Members` |
 | `usages.go` | `Usages` |
+| `settings.go` | `Settings` |
 | `identity.go` | `Identity`, sibling PDB kind |
 | `pdb.go` | `SourceLine`, embedded and sibling portable PDB, sequence points |
 | `melon.go` | `ScanMelon`, `MelonOrder` |

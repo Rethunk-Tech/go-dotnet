@@ -6,6 +6,11 @@ Notable changes to `go-dotnet`. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `Settings`: the BepInEx config entries a plugin binds with a constant section, key and default, read from its IL,
+  with the description, range, enum names and any ConfigSync or CSync sync level.
+
 ## [0.1.0] - 2026-10-29
 
 ### Added

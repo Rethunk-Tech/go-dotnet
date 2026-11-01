@@ -26,6 +26,7 @@ A worked example and the contracts: [HUMANS.md](HUMANS.md).
 
 - BepInEx 5 plugin identity and dependencies (`Scan`), Harmony patches (`Patches`), MelonLoader info and order.
 - Which game members a mod assigns (`Writes`), its members (`Members`) and who calls one (`Usages`).
+- The BepInEx settings a plugin binds, with their defaults, ranges and lobby sync, before it ever runs (`Settings`).
 - Module id and source line for a stack frame (`Identity`, `SourceLine`), from embedded or sibling portable PDBs.
 - Crafted-input safe: panics become `ErrMalformed`, type-chain cycles are bounded, size caps are errors.
 - Standard library only.
