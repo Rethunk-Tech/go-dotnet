@@ -188,3 +188,63 @@ namespace IL.StardewValley
         }
     }
 }
+
+namespace BepInEx.Configuration
+{
+    // BepInEx's config API, which the reader finds by namespace, type and method name.
+    public class ConfigFile
+    {
+        public ConfigEntry<T> Bind<T>(string section, string key, T defaultValue, ConfigDescription configDescription = null) => null;
+
+        public ConfigEntry<T> Bind<T>(string section, string key, T defaultValue, string description) => null;
+    }
+
+    public class ConfigEntry<T>
+    {
+    }
+
+    public class ConfigDescription
+    {
+        public ConfigDescription(string description, AcceptableValueBase acceptableValues = null, params object[] tags)
+        {
+        }
+    }
+
+    public abstract class AcceptableValueBase
+    {
+    }
+
+    public class AcceptableValueRange<T> : AcceptableValueBase
+    {
+        public AcceptableValueRange(T minValue, T maxValue)
+        {
+        }
+    }
+}
+
+namespace ConfigSync
+{
+    // In the real library's order, which is what the IL's level constant counts in.
+    public enum Sync
+    {
+        HostRecommended,
+        HostEnforced,
+    }
+
+    public class SyncedEntry<T>
+    {
+    }
+
+    public class SyncedConfig
+    {
+        public SyncedEntry<T> Share<T>(BepInEx.Configuration.ConfigEntry<T> entry, Sync level = Sync.HostEnforced) => null;
+    }
+}
+
+namespace CSync.Extensions
+{
+    public static class SyncedBindingExtensions
+    {
+        public static object BindSyncedEntry<T>(this BepInEx.Configuration.ConfigFile file, string section, string key, T defaultValue, string description) => null;
+    }
+}

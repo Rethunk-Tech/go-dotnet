@@ -136,3 +136,36 @@ namespace Fixture.Hooks
         }
     }
 }
+
+namespace Fixture.Settings
+{
+    using BepInEx.Configuration;
+    using CSync.Extensions;
+    using ConfigSync;
+
+    public enum Mode
+    {
+        Calm,
+        Wild = 4,
+    }
+
+    // Each way a plugin binds a setting: plain, with a description object and a range, shared through ConfigSync at
+    // each level, through CSync, and with a default that is not a constant.
+    public class Binds
+    {
+        public void Bind(ConfigFile config, SyncedConfig shared, float notConstant)
+        {
+            config.Bind("General", "Enabled", true, "Turns it on.");
+            config.Bind("General", "Name", "Fixture", "A name.");
+            config.Bind("Numbers", "Count", 12, new ConfigDescription("How many.", new AcceptableValueRange<int>(1, 100)));
+            config.Bind("Numbers", "Speed", 1.5f, new ConfigDescription("How fast.", new AcceptableValueRange<float>(0.5f, 10f)));
+            config.Bind("Numbers", "Big", 3000000000L, "A long.");
+            config.Bind("Numbers", "Ratio", 0.25, "A double.");
+            config.Bind("Numbers", "Below", -3, "Negative.");
+            shared.Share(config.Bind("Shared", "Mode", Mode.Wild, "Picked by the host."));
+            shared.Share(config.Bind("Shared", "Hint", false, "The host suggests it."), Sync.HostRecommended);
+            config.BindSyncedEntry("Shared", "Through CSync", 7, "Synced by CSync.");
+            config.Bind("General", "Unknown", notConstant, "Not a constant.");
+        }
+    }
+}
