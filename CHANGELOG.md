@@ -6,6 +6,8 @@ Notable changes to `go-dotnet`. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-01
+
 ### Added
 
 - `Settings`: the BepInEx config entries a plugin binds with a constant section, key and default, read from its IL,
@@ -22,5 +24,6 @@ Notable changes to `go-dotnet`. The format follows
 - `ErrNotAssembly`, `ErrMalformed`, `ErrTooLarge` and the `MaxAssemblyBytes` and `MaxPDBBytes` caps.
 - Fuzz targets for the metadata reader, the attribute blobs and the portable PDB reader.
 
-[Unreleased]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.1.1...v0.2.0
 [0.1.0]: https://github.com/Rethunk-Tech/go-dotnet/releases/tag/v0.1.0
