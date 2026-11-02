@@ -59,8 +59,8 @@ func (n sigNames) csType(sig []byte, depth int) (string, []byte) {
 	case 0x15:
 		v, k := compressed(rest[1:])
 		base := strings.TrimSuffix(n.typeName(v, depth), "`")
-		if i := strings.LastIndexByte(base, '`'); i >= 0 {
-			base = base[:i]
+		if before, _, found := strings.CutLast(base, "`"); found {
+			base = before
 		}
 		count, c := compressed(rest[1+k:])
 		after := rest[1+k+c:]
