@@ -701,138 +701,174 @@ func ops(code []byte) iter.Seq[instr] {
 	}
 }
 
+// walker is the evaluation-stack state of one scan.walk pass.
+type walker struct {
+	s      *scan
+	code   []byte
+	other  map[int]bool
+	writes []string
+	stack  []slot
+	locals map[int]slot
+	joins  map[int][]slot
+}
+
+func (w *walker) pop(n int) {
+	w.stack = w.stack[:max(0, len(w.stack)-n)]
+}
+
+func (w *walker) peek(depth int) slot {
+	if depth < len(w.stack) {
+		return w.stack[len(w.stack)-1-depth]
+	}
+	return slot{}
+}
+
+func (w *walker) branch(target int) {
+	if j, ok := w.joins[target]; ok {
+		w.joins[target] = join(j, w.stack)
+	} else {
+		w.joins[target] = slices.Clone(w.stack)
+	}
+}
+
 // walk simulates the evaluation stack over code in one linear pass, returning the game members written and marking
 // in other each local stored a value that is not a built object. The stack at a branch target joins what the
 // branches carried there; after an unconditional transfer it is what the branches carried, or empty.
 func (s *scan) walk(code []byte, other map[int]bool) []string {
-	var writes []string
-	var stack []slot
-	locals := map[int]slot{}
-	joins := map[int][]slot{}
-	pop := func(n int) {
-		stack = stack[:max(0, len(stack)-n)]
-	}
-	peek := func(depth int) slot {
-		if depth < len(stack) {
-			return stack[len(stack)-1-depth]
-		}
-		return slot{}
-	}
-	branch := func(target int) {
-		if j, ok := joins[target]; ok {
-			joins[target] = join(j, stack)
-		} else {
-			joins[target] = slices.Clone(stack)
-		}
-	}
+	w := &walker{s: s, code: code, other: other, locals: map[int]slot{}, joins: map[int][]slot{}}
 	dead := false
 	for in := range ops(code) {
-		j, ok := []slot(nil), false
-		if len(joins) > 0 {
-			j, ok = joins[in.start]
+		w.enter(in.start, dead)
+		w.step(in)
+		dead = isTerminator(in.op)
+	}
+	return w.writes
+}
+
+// enter reconciles the stack with what the branches carried to the instruction at start.
+func (w *walker) enter(start int, dead bool) {
+	j, ok := []slot(nil), false
+	if len(w.joins) > 0 {
+		j, ok = w.joins[start]
+	}
+	switch {
+	case ok && dead:
+		w.stack = slices.Clone(j)
+	case ok:
+		w.stack = join(w.stack, j)
+	case dead:
+		w.stack = w.stack[:0]
+	}
+}
+
+// isTerminator reports whether control never falls through op.
+func isTerminator(op int) bool {
+	return op == 0x2A || op == 0x2B || op == 0x38 || op == 0x7A || op == 0xDC || op == 0xDD || op == 0xDE ||
+		op == 0x27 || op == 0xFE11 || op == 0xFE1A
+}
+
+func (w *walker) step(in instr) {
+	op, arg := in.op, in.arg
+	switch op {
+	case 0x28, 0x29, 0x6F, 0x73: // call, calli, callvirt, newobj
+		w.call(op, arg)
+	case 0x7B, 0x7C, 0x7E, 0x7F: // ldfld, ldflda, ldsfld, ldsflda
+		receiver := slot{}
+		if op <= 0x7C {
+			receiver = w.peek(0)
+			w.pop(1)
 		}
-		switch {
-		case ok && dead:
-			stack = slices.Clone(j)
-		case ok:
-			stack = join(stack, j)
-		case dead:
-			stack = stack[:0]
+		pushed := slot{}
+		if r := w.s.ref(arg); r.ok && w.s.inGame(r.ns) && r.typeNS == w.s.wrapper {
+			pushed = slot{member: r.member, fresh: receiver.fresh}
 		}
-		dead = false
-		op, arg, at, p := in.op, in.arg, in.at, in.next
-		switch op {
-		case 0x28, 0x29, 0x6F, 0x73: // call, calli, callvirt, newobj
-			r := s.ref(arg)
-			receiver := slot{}
-			if r.this && op != 0x73 {
-				receiver = peek(r.params)
-			}
-			switch {
-			case !r.ok || op == 0x73:
-			case s.inGame(r.ns) && strings.HasPrefix(r.name, "set_"):
-				if !r.this || !receiver.fresh {
-					writes = append(writes, r.member)
-				}
-			case r.ns == s.wrapper && r.name == "set_Value":
-				if receiver.member != "" && !receiver.fresh {
-					writes = append(writes, receiver.member)
-				}
-			}
-			pushed := slot{fresh: op == 0x73}
-			if r.ok && op != 0x73 && s.inGame(r.ns) && strings.HasPrefix(r.name, "get_") && r.typeNS == s.wrapper {
-				pushed = slot{member: r.member, fresh: r.this && receiver.fresh}
-			}
-			n := r.params
-			if r.this && op != 0x73 {
-				n++
-			}
-			if op == 0x29 {
-				n++
-			}
-			pop(n)
-			if r.returns || op == 0x73 {
-				stack = append(stack, pushed)
-			}
-		case 0x7B, 0x7C, 0x7E, 0x7F: // ldfld, ldflda, ldsfld, ldsflda
-			receiver := slot{}
-			if op <= 0x7C {
-				receiver = peek(0)
-				pop(1)
-			}
-			pushed := slot{}
-			if r := s.ref(arg); r.ok && s.inGame(r.ns) && r.typeNS == s.wrapper {
-				pushed = slot{member: r.member, fresh: receiver.fresh}
-			}
-			stack = append(stack, pushed)
-		case 0x7D, 0x80: // stfld, stsfld
-			if r := s.ref(arg); r.ok && s.inGame(r.ns) && (op == 0x80 || !peek(1).fresh) {
-				writes = append(writes, r.member)
-			}
-			if op == 0x7D {
-				pop(2)
-			} else {
-				pop(1)
-			}
-		case 0x06, 0x07, 0x08, 0x09, 0x11, 0xFE0C: // ldloc
-			i := local(op, arg)
-			v := locals[i]
-			v.fresh = !other[i]
-			stack = append(stack, v)
-		case 0x0A, 0x0B, 0x0C, 0x0D, 0x13, 0xFE0E: // stloc
-			i := local(op, arg)
-			v := peek(0)
-			if !v.fresh {
-				other[i] = true
-			}
-			locals[i] = v
-			pop(1)
-		case 0x12, 0xFE0D: // ldloca: the address lets anything be stored there
-			other[local(op, arg)] = true
-			stack = append(stack, slot{})
-		case 0x25: // dup
-			stack = append(stack, peek(0))
-		default:
-			pops, pushes := effect(op)
-			pop(pops)
-			for range pushes {
-				stack = append(stack, slot{})
-			}
-			switch {
-			case op >= 0x2B && op <= 0x37 || op == 0xDE:
-				branch(p + int(code[at]^0x80) - 0x80)
-			case op >= 0x38 && op <= 0x44 || op == 0xDD:
-				branch(p + signed(arg))
-			case op == 0x45:
-				for i := range int(le32(code[at:])) {
-					branch(p + signed(le32(code[at+4+4*i:])))
-				}
-			}
-			dead = op == 0x2A || op == 0x2B || op == 0x38 || op == 0x7A || op == 0xDC || op == 0xDD || op == 0xDE ||
-				op == 0x27 || op == 0xFE11 || op == 0xFE1A
+		w.stack = append(w.stack, pushed)
+	case 0x7D, 0x80: // stfld, stsfld
+		if r := w.s.ref(arg); r.ok && w.s.inGame(r.ns) && (op == 0x80 || !w.peek(1).fresh) {
+			w.writes = append(w.writes, r.member)
+		}
+		if op == 0x7D {
+			w.pop(2)
+		} else {
+			w.pop(1)
+		}
+	case 0x06, 0x07, 0x08, 0x09, 0x11, 0xFE0C: // ldloc
+		i := local(op, arg)
+		v := w.locals[i]
+		v.fresh = !w.other[i]
+		w.stack = append(w.stack, v)
+	case 0x0A, 0x0B, 0x0C, 0x0D, 0x13, 0xFE0E: // stloc
+		i := local(op, arg)
+		v := w.peek(0)
+		if !v.fresh {
+			w.other[i] = true
+		}
+		w.locals[i] = v
+		w.pop(1)
+	case 0x12, 0xFE0D: // ldloca: the address lets anything be stored there
+		w.other[local(op, arg)] = true
+		w.stack = append(w.stack, slot{})
+	case 0x25: // dup
+		w.stack = append(w.stack, w.peek(0))
+	default:
+		w.generic(in)
+	}
+}
+
+// call applies a call, calli, callvirt or newobj: records the game member it writes and pushes what it returns.
+func (w *walker) call(op int, arg uint32) {
+	s := w.s
+	r := s.ref(arg)
+	receiver := slot{}
+	if r.this && op != 0x73 {
+		receiver = w.peek(r.params)
+	}
+	switch {
+	case !r.ok || op == 0x73:
+	case s.inGame(r.ns) && strings.HasPrefix(r.name, "set_"):
+		if !r.this || !receiver.fresh {
+			w.writes = append(w.writes, r.member)
+		}
+	case r.ns == s.wrapper && r.name == "set_Value":
+		if receiver.member != "" && !receiver.fresh {
+			w.writes = append(w.writes, receiver.member)
 		}
 	}
-	return writes
+	pushed := slot{fresh: op == 0x73}
+	if r.ok && op != 0x73 && s.inGame(r.ns) && strings.HasPrefix(r.name, "get_") && r.typeNS == s.wrapper {
+		pushed = slot{member: r.member, fresh: r.this && receiver.fresh}
+	}
+	n := r.params
+	if r.this && op != 0x73 {
+		n++
+	}
+	if op == 0x29 {
+		n++
+	}
+	w.pop(n)
+	if r.returns || op == 0x73 {
+		w.stack = append(w.stack, pushed)
+	}
+}
+
+// generic applies the stack effect of any other opcode and records the branch targets it names.
+func (w *walker) generic(in instr) {
+	op, arg, at, p := in.op, in.arg, in.at, in.next
+	pops, pushes := effect(op)
+	w.pop(pops)
+	for range pushes {
+		w.stack = append(w.stack, slot{})
+	}
+	switch {
+	case op >= 0x2B && op <= 0x37 || op == 0xDE:
+		w.branch(p + int(w.code[at]^0x80) - 0x80)
+	case op >= 0x38 && op <= 0x44 || op == 0xDD:
+		w.branch(p + signed(arg))
+	case op == 0x45:
+		for i := range int(le32(w.code[at:])) {
+			w.branch(p + signed(le32(w.code[at+4+4*i:])))
+		}
+	}
 }
 
 // join merges the stacks two paths carry to one instruction: a value is built only if it is on both.

@@ -85,9 +85,20 @@ func Patches(path string) ([]Patch, error) {
 }
 
 func patches(m *assembly) (out []Patch, err error) {
-	typeInfo := map[int]patchInfo{}
-	methodInfo := map[int]patchInfo{}
-	methodKind := map[int]string{}
+	seen := map[Patch]bool{}
+	out = attributePatches(m, seen)
+	out = append(out, hookPatches(m, seen)...)
+	slices.SortFunc(out, func(a, b Patch) int {
+		return cmp.Or(strings.Compare(a.Target+a.Kind, b.Target+b.Kind), strings.Compare(a.Method, b.Method))
+	})
+	return out, nil
+}
+
+// patchAttributes reads the HarmonyLib attributes: [HarmonyPatch] arguments per type and method, and each method's kind.
+func patchAttributes(m *assembly) (typeInfo, methodInfo map[int]patchInfo, methodKind map[int]string) {
+	typeInfo = map[int]patchInfo{}
+	methodInfo = map[int]patchInfo{}
+	methodKind = map[int]string{}
 	for a := range m.attributes("HarmonyLib") {
 		switch {
 		case a.name == "HarmonyPatch":
@@ -105,7 +116,12 @@ func patches(m *assembly) (out []Patch, err error) {
 			methodKind[a.def] = patchKinds[a.name]
 		}
 	}
-	seen := map[Patch]bool{}
+	return typeInfo, methodInfo, methodKind
+}
+
+// attributePatches lists the methods HarmonyLib attributes mark as patches, each once.
+func attributePatches(m *assembly, seen map[Patch]bool) (out []Patch) {
+	typeInfo, methodInfo, methodKind := patchAttributes(m)
 	for t := 1; t <= m.rows[tTypeDef]; t++ {
 		class, patchClass := typeInfo[t]
 		for md := range m.methodsOf(t) {
@@ -129,6 +145,11 @@ func patches(m *assembly) (out []Patch, err error) {
 			}
 		}
 	}
+	return out
+}
+
+// hookPatches lists the HookGen hooks the module subscribes: On.* as a hook, IL.* as a transpiler.
+func hookPatches(m *assembly, seen map[Patch]bool) (out []Patch) {
 	for row := 1; row <= m.rows[tMemberRef]; row++ {
 		parent, ref := decode(cMemberRefParent, m.cell(tMemberRef, row, 0))
 		if parent != tTypeRef {
@@ -150,10 +171,7 @@ func patches(m *assembly) (out []Patch, err error) {
 			out = append(out, p)
 		}
 	}
-	slices.SortFunc(out, func(a, b Patch) int {
-		return cmp.Or(strings.Compare(a.Target+a.Kind, b.Target+b.Kind), strings.Compare(a.Method, b.Method))
-	})
-	return out, nil
+	return out
 }
 
 // typeDefName names a type the module defines as a stack frame does: "Namespace.Outer+Inner". Nesting deeper than a

@@ -105,17 +105,7 @@ type pendingBind struct {
 }
 
 func (r *settingReader) body(code []byte) {
-	var steps []step
-	for in := range ops(code) {
-		if (in.op >= 0x67 && in.op <= 0x6E) || in.op == 0x76 {
-			// conv.u8 widens without sign: a long above int's range is written as its low 32 bits and this.
-			if last := len(steps) - 1; in.op == opConvU8 && last >= 0 && steps[last].c != nil && steps[last].c.kind == 'i' {
-				steps[last].c.i = unsigned32(steps[last].c.i)
-			}
-			continue
-		}
-		steps = append(steps, step{in: in, c: r.constant(code, in)})
-	}
+	steps := r.steps(code)
 	var cur *pendingBind
 	for i, st := range steps {
 		if (cur == nil || i >= cur.after) && i+2 < len(steps) && isString(steps[i].c) && isString(steps[i+1].c) && steps[i+2].c != nil {
@@ -131,25 +121,48 @@ func (r *settingReader) body(code []byte) {
 		case st.in.op == opNewobj && r.u.name(r.m, st.in.arg) == rangeCtor && i >= 2 && steps[i-2].c != nil && steps[i-1].c != nil:
 			cur.min, cur.max = steps[i-2].c, steps[i-1].c
 		case st.in.op == opCall || st.in.op == opCallvirt:
-			name := r.u.name(r.m, st.in.arg)
-			csync := strings.HasSuffix(name, csyncBind)
-			if name != bindName && !csync {
-				continue
+			if sync, ok := r.bindSync(steps, i); ok {
+				r.emit(cur, st.in.arg, sync)
+				cur = nil
 			}
-			sync := ""
-			if csync {
-				sync = "host-enforced"
-			} else if i+2 < len(steps) && steps[i+1].c != nil && steps[i+1].c.kind == 'i' && (steps[i+2].in.op == opCall || steps[i+2].in.op == opCallvirt) && r.u.name(r.m, steps[i+2].in.arg) == shareName {
-				// ConfigSync's Sync enum: HostRecommended is 0, HostEnforced 1.
-				sync = "host-recommended"
-				if steps[i+1].c.i == 1 {
-					sync = "host-enforced"
-				}
-			}
-			r.emit(cur, st.in.arg, sync)
-			cur = nil
 		}
 	}
+}
+
+// steps decodes code's instructions with the constants they push, folding conv.u8 into the constant before it.
+func (r *settingReader) steps(code []byte) []step {
+	var steps []step
+	for in := range ops(code) {
+		if (in.op >= 0x67 && in.op <= 0x6E) || in.op == 0x76 {
+			// conv.u8 widens without sign: a long above int's range is written as its low 32 bits and this.
+			if last := len(steps) - 1; in.op == opConvU8 && last >= 0 && steps[last].c != nil && steps[last].c.kind == 'i' {
+				steps[last].c.i = unsigned32(steps[last].c.i)
+			}
+			continue
+		}
+		steps = append(steps, step{in: in, c: r.constant(code, in)})
+	}
+	return steps
+}
+
+// bindSync reports whether the call at steps[i] binds a setting, and its sync mode.
+func (r *settingReader) bindSync(steps []step, i int) (string, bool) {
+	name := r.u.name(r.m, steps[i].in.arg)
+	csync := strings.HasSuffix(name, csyncBind)
+	if name != bindName && !csync {
+		return "", false
+	}
+	if csync {
+		return "host-enforced", true
+	}
+	if i+2 < len(steps) && steps[i+1].c != nil && steps[i+1].c.kind == 'i' && (steps[i+2].in.op == opCall || steps[i+2].in.op == opCallvirt) && r.u.name(r.m, steps[i+2].in.arg) == shareName {
+		// ConfigSync's Sync enum: HostRecommended is 0, HostEnforced 1.
+		if steps[i+1].c.i == 1 {
+			return "host-enforced", true
+		}
+		return "host-recommended", true
+	}
+	return "", true
 }
 
 func isString(c *constant) bool { return c != nil && c.kind == 's' }
