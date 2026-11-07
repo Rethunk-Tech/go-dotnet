@@ -64,7 +64,7 @@ func (n sigNames) csType(sig []byte, depth int) (string, []byte) {
 		}
 		count, c := compressed(rest[1+k:])
 		after := rest[1+k+c:]
-		args := make([]string, count)
+		args := make([]string, boundedCount(count, after))
 		for i := range args {
 			args[i], after = n.csType(after, depth+1)
 		}
@@ -139,7 +139,7 @@ func (n sigNames) methodTypes(sig []byte) (returns string, params []string) {
 	count, k := compressed(sig[p:])
 	rest := sig[p+k:]
 	returns, rest = n.csType(rest, 0)
-	params = make([]string, count)
+	params = make([]string, boundedCount(count, rest))
 	for i := range params {
 		params[i], rest = n.csType(rest, 0)
 	}

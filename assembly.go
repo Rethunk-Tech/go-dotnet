@@ -171,6 +171,34 @@ type assembly struct {
 	cols     [tableCount][]int // column byte offsets, plus the row size at the end
 	widths   [tableCount][]int
 	heapWide [3]bool
+
+	// nested and constants are read on first use and kept, because their callers ask once per type or per enum.
+	nested    map[int]int
+	constants map[int][]byte
+}
+
+// nesting maps each nested TypeDef row to its enclosing one.
+func (m *assembly) nesting() map[int]int {
+	if m.nested == nil {
+		m.nested = map[int]int{}
+		for row := 1; row <= m.rows[tNested]; row++ {
+			m.nested[int(m.cell(tNested, row, 0))] = int(m.cell(tNested, row, 1))
+		}
+	}
+	return m.nested
+}
+
+// fieldConstants maps each Field row to its Constant blob.
+func (m *assembly) fieldConstants() map[int][]byte {
+	if m.constants == nil {
+		m.constants = map[int][]byte{}
+		for c := 1; c <= m.rows[tConstant]; c++ {
+			if table, row := decode(cHasConstant, m.cell(tConstant, c, 1)); table == tField {
+				m.constants[row] = m.blob(m.cell(tConstant, c, 2))
+			}
+		}
+	}
+	return m.constants
 }
 
 // Writes lists the members of types in namespace game (or beneath it) that the assembly's method bodies assign, as
@@ -214,10 +242,10 @@ func query[T any](a *assembly, fn func(*assembly) (T, error)) (out T, err error)
 // cycle that would overflow the stack, a fatal error no recover catches.
 const maxDepth = 32
 
-// tooDeep is the panic a chain past maxDepth raises; as a runtime.Error it takes malformed's path.
+// tooDeep is the panic a chain, stack or count past its bound raises; as a runtime.Error it takes malformed's path.
 type tooDeep struct{}
 
-func (tooDeep) Error() string { return "type chain too deep" }
+func (tooDeep) Error() string { return "structure past its bound" }
 func (tooDeep) RuntimeError() {}
 
 // readFile reads the assembly at path. The open is confined to the file's directory, so a final-element symlink
@@ -447,6 +475,15 @@ func compressed(b []byte) (uint32, int) {
 	}
 }
 
+// boundedCount is a signature's element count, refused when the bytes left cannot hold that many elements: each one
+// takes at least a byte, so a larger count is crafted and would size an allocation by the image's say-so.
+func boundedCount(count uint32, rest []byte) int {
+	if int64(count) > int64(len(rest)) {
+		panic(tooDeep{})
+	}
+	return int(count)
+}
+
 func decode(kind int, v uint32) (table, row int) {
 	n := len(codedTables[kind])
 	tag := bits.Len(uint(n - 1))
@@ -652,12 +689,23 @@ func (s *scan) body(b []byte) {
 func ilCode(b []byte) []byte {
 	switch b[0] & 3 {
 	case 2:
-		return b[1 : 1+int(b[0]>>2)]
+		return exactly(b, 1, int(b[0]>>2))
 	case 3:
-		header := int(b[1]>>4) * 4
-		return b[header : header+int(le32(b[4:]))]
+		if len(b) < 8 {
+			return nil
+		}
+		return exactly(b, int(b[1]>>4)*4, int(le32(b[4:])))
 	}
 	return nil
+}
+
+// exactly is the size bytes of b at from, or nil when the body ends first; slicing past len(b) within its capacity
+// would read the next method's bytes as this one's IL.
+func exactly(b []byte, from, size int) []byte {
+	if from > len(b) || size > len(b)-from {
+		return nil
+	}
+	return b[from : from+size]
 }
 
 // instr is one IL instruction: where it starts, its opcode (0xFExx for two-byte opcodes), where its operand starts,
@@ -710,6 +758,22 @@ type walker struct {
 	stack  []slot
 	locals map[int]slot
 	joins  map[int][]slot
+	// joined counts the slots held in joins, which a crafted method could otherwise grow with the square of its length.
+	joined int
+}
+
+// maxStack bounds the evaluation stack a walk simulates, and maxJoined the slots its branch targets retain between
+// them. Compilers keep both tiny; a crafted method body could otherwise cost memory quadratic in its length.
+const (
+	maxStack  = 1024
+	maxJoined = 1 << 16
+)
+
+func (w *walker) push(v slot) {
+	if len(w.stack) >= maxStack {
+		panic(tooDeep{})
+	}
+	w.stack = append(w.stack, v)
 }
 
 func (w *walker) pop(n int) {
@@ -727,6 +791,9 @@ func (w *walker) branch(target int) {
 	if j, ok := w.joins[target]; ok {
 		w.joins[target] = join(j, w.stack)
 	} else {
+		if w.joined += len(w.stack); w.joined > maxJoined {
+			panic(tooDeep{})
+		}
 		w.joins[target] = slices.Clone(w.stack)
 	}
 }
@@ -782,7 +849,7 @@ func (w *walker) step(in instr) {
 		if r := w.s.ref(arg); r.ok && w.s.inGame(r.ns) && r.typeNS == w.s.wrapper {
 			pushed = slot{member: r.member, fresh: receiver.fresh}
 		}
-		w.stack = append(w.stack, pushed)
+		w.push(pushed)
 	case 0x7D, 0x80: // stfld, stsfld
 		if r := w.s.ref(arg); r.ok && w.s.inGame(r.ns) && (op == 0x80 || !w.peek(1).fresh) {
 			w.writes = append(w.writes, r.member)
@@ -796,7 +863,7 @@ func (w *walker) step(in instr) {
 		i := local(op, arg)
 		v := w.locals[i]
 		v.fresh = !w.other[i]
-		w.stack = append(w.stack, v)
+		w.push(v)
 	case 0x0A, 0x0B, 0x0C, 0x0D, 0x13, 0xFE0E: // stloc
 		i := local(op, arg)
 		v := w.peek(0)
@@ -807,9 +874,9 @@ func (w *walker) step(in instr) {
 		w.pop(1)
 	case 0x12, 0xFE0D: // ldloca: the address lets anything be stored there
 		w.other[local(op, arg)] = true
-		w.stack = append(w.stack, slot{})
+		w.push(slot{})
 	case 0x25: // dup
-		w.stack = append(w.stack, w.peek(0))
+		w.push(w.peek(0))
 	default:
 		w.generic(in)
 	}
@@ -847,7 +914,7 @@ func (w *walker) call(op int, arg uint32) {
 	}
 	w.pop(n)
 	if r.returns || op == 0x73 {
-		w.stack = append(w.stack, pushed)
+		w.push(pushed)
 	}
 }
 
@@ -857,7 +924,7 @@ func (w *walker) generic(in instr) {
 	pops, pushes := effect(op)
 	w.pop(pops)
 	for range pushes {
-		w.stack = append(w.stack, slot{})
+		w.push(slot{})
 	}
 	switch {
 	case op >= 0x2B && op <= 0x37 || op == 0xDE:
@@ -1003,7 +1070,9 @@ func scanDeclared(m *assembly) (out Declared, err error) {
 					p.Namespace = m.str(m.cell(tTypeDef, a.def, 2))
 					guidOf[a.def] = p.GUID
 				}
-				out.Plugins = append(out.Plugins, p)
+				if len(out.Plugins) < maxRelations {
+					out.Plugins = append(out.Plugins, p)
+				}
 			}
 		case "BepInDependency", "BepInIncompatibility":
 			if r, ok := relationArgs(blob, a.name == "BepInIncompatibility"); ok && a.owner == tTypeDef && len(found) < maxRelations {
@@ -1025,7 +1094,9 @@ func serString(b []byte) (s string, rest []byte, ok bool) {
 	if len(b) == 0 {
 		return "", nil, false
 	}
-	n, size := compressed(append(slices.Clip(b), 0, 0, 0))
+	var head [4]byte
+	copy(head[:], b)
+	n, size := compressed(head[:])
 	if int(n)+size > len(b) {
 		return "", nil, false
 	}

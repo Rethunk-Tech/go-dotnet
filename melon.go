@@ -32,8 +32,10 @@ func scanMelon(m *assembly) (out Melon, err error) {
 	if m.rows[tAssembly] > 0 {
 		out.Assembly = m.str(m.cell(tAssembly, 1, 7))
 	}
+	seen := map[string]bool{}
 	for row := 1; row <= m.rows[tAssemblyRef]; row++ {
-		if name := m.str(m.cell(tAssemblyRef, row, 6)); !slices.Contains(out.Refs, name) {
+		if name := m.str(m.cell(tAssemblyRef, row, 6)); !seen[name] {
+			seen[name] = true
 			out.Refs = append(out.Refs, name)
 		}
 	}

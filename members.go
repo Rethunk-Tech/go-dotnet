@@ -34,10 +34,7 @@ func Members(path string) ([]Member, error) {
 }
 
 func members(m *assembly) (out []Member, err error) {
-	outer := map[int]int{}
-	for row := 1; row <= m.rows[tNested]; row++ {
-		outer[int(m.cell(tNested, row, 0))] = int(m.cell(tNested, row, 1))
-	}
+	outer := m.nesting()
 	for t := 1; t <= m.rows[tTypeDef]; t++ {
 		typ := m.nestedName(t, outer)
 		if strings.Contains(typ, "<") {

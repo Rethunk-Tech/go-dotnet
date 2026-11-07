@@ -15,7 +15,7 @@ Please do not open a public issue for a suspected vulnerability first.
 ## What is in scope
 
 - The assembly file given to any query: a crafted image must not panic (`ErrMalformed`), overflow the stack (TypeRef
-  and TypeSpec chains are bounded), or allocate unboundedly (reads are capped at `MaxAssemblyBytes`, relations at 1024).
+  and TypeSpec chains are bounded), or allocate unboundedly (reads are capped at `MaxAssemblyBytes`, relations and plugins at 1024, the IL evaluation stack at 1024 slots, the stack copies a method's branches keep at 65536 slots, and a signature's element count at the bytes left).
 - The sibling or embedded portable PDB read by `SourceLine` and `Identity`: refused over `MaxPDBBytes`, and an embedded
   one must inflate to exactly its stated size.
 - The path itself: opened inside its directory, so a final-element symlink cannot leave it.

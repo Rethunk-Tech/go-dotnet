@@ -6,6 +6,11 @@ Notable changes to `go-dotnet`. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A crafted method body, signature or attribute blob can no longer allocate memory quadratic in its size: the IL walk bounds its stack and branch joins, signature counts must fit the bytes left, and `serString` copies nothing. Such an image reads as `ErrMalformed`.
+- A method body whose declared code size runs past its bytes is skipped instead of reading the next method's IL.
+
 ## [0.2.0] - 2026-11-01
 
 ### Added

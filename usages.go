@@ -34,10 +34,7 @@ type usageNames struct {
 
 // usageNames names every method and field the module defines as "Type::Member", by row.
 func (m *assembly) usageNames() usageNames {
-	outer := map[int]int{}
-	for row := 1; row <= m.rows[tNested]; row++ {
-		outer[int(m.cell(tNested, row, 0))] = int(m.cell(tNested, row, 1))
-	}
+	outer := m.nesting()
 	u := usageNames{methods: make([]string, m.rows[tMethodDef]+1), fields: make([]string, m.rows[tField]+1)}
 	for t := 1; t <= m.rows[tTypeDef]; t++ {
 		typ := m.nestedName(t, outer)

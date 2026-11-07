@@ -176,27 +176,7 @@ func hookPatches(m *assembly, seen map[Patch]bool) (out []Patch) {
 
 // typeDefName names a type the module defines as a stack frame does: "Namespace.Outer+Inner". Nesting deeper than a
 // crafted cycle could reach stops.
-func (m *assembly) typeDefName(t int) string {
-	name := m.str(m.cell(tTypeDef, t, 1))
-	for range 32 {
-		outer := 0
-		for row := 1; row <= m.rows[tNested]; row++ {
-			if int(m.cell(tNested, row, 0)) == t {
-				outer = int(m.cell(tNested, row, 1))
-				break
-			}
-		}
-		if outer == 0 || outer == t {
-			break
-		}
-		t = outer
-		name = m.str(m.cell(tTypeDef, t, 1)) + "+" + name
-	}
-	if ns := m.str(m.cell(tTypeDef, t, 2)); ns != "" {
-		return ns + "." + name
-	}
-	return name
-}
+func (m *assembly) typeDefName(t int) string { return m.nestedName(t, m.nesting()) }
 
 // harmonyPatchArgs reads a [HarmonyPatch] attribute's fixed arguments, typed by its constructor's signature: a Type is
 // the declaring type, a first string the method name (or, followed by a second string, HarmonyX's type name then method

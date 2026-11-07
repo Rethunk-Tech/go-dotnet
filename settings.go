@@ -280,12 +280,7 @@ func (m *assembly) enumOf(t int) (values []string, names map[int64]string, ok bo
 	if ns+"."+name != enumBase {
 		return nil, nil, false
 	}
-	constants := map[int][]byte{}
-	for c := 1; c <= m.rows[tConstant]; c++ {
-		if table, row := decode(cHasConstant, m.cell(tConstant, c, 1)); table == tField {
-			constants[row] = m.blob(m.cell(tConstant, c, 2))
-		}
-	}
+	constants := m.fieldConstants()
 	names = map[int64]string{}
 	for f := range m.fieldsOf(t) {
 		field := m.str(m.cell(tField, f, 1))
