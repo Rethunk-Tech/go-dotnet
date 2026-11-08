@@ -6,6 +6,8 @@ Notable changes to `go-dotnet`. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-08
+
 ### Added
 
 - `Diagnostics`: MSBuild's canonical diagnostic lines (`file(line,col): error|warning CODE: text [project]`), each once and in order.
@@ -41,7 +43,8 @@ Notable changes to `go-dotnet`. The format follows
 - `ErrNotAssembly`, `ErrMalformed`, `ErrTooLarge` and the `MaxAssemblyBytes` and `MaxPDBBytes` caps.
 - Fuzz targets for the metadata reader, the attribute blobs and the portable PDB reader.
 
-[Unreleased]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.1.1...v0.2.0
