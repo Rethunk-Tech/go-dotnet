@@ -6,6 +6,10 @@ Notable changes to `go-dotnet`. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `Diagnostics`: MSBuild's canonical diagnostic lines (`file(line,col): error|warning CODE: text [project]`), each once and in order.
+
 ## [0.2.2] - 2026-11-07
 
 ### Fixed
