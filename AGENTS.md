@@ -33,6 +33,7 @@ cannot resolve that check from PATH. No code is OS-specific; the
 | --- | --- |
 | `doc.go` | Package documentation |
 | `assembly.go` | Errors and caps, file read, `open`/`query`, PE and metadata layout, heaps, signatures, IL walk, `Writes`, `Scan` |
+| `signature.go` | Signature types as C# writes them |
 | `harmony.go` | `Patches`, `PatchKindByName`, Harmony attribute blobs |
 | `members.go` | `Members` |
 | `usages.go` | `Usages` |
@@ -40,3 +41,4 @@ cannot resolve that check from PATH. No code is OS-specific; the
 | `identity.go` | `Identity`, sibling PDB kind |
 | `pdb.go` | `SourceLine`, embedded and sibling portable PDB, sequence points |
 | `melon.go` | `ScanMelon`, `MelonOrder` |
+| `msbuild.go` | `Diagnostics` |

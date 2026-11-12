@@ -12,24 +12,24 @@ go get github.com/Rethunk-Tech/go-dotnet
 package main
 
 import (
-	"fmt"
-	"log"
-	"os"
+ "fmt"
+ "log"
+ "os"
 
-	"github.com/Rethunk-Tech/go-dotnet"
+ "github.com/Rethunk-Tech/go-dotnet"
 )
 
 func main() {
-	d, err := dotnet.Scan(os.Args[1])
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, p := range d.Plugins {
-		fmt.Println(p.GUID, p.Name, p.Version)
-	}
-	for _, r := range d.Relations {
-		fmt.Println(r.Plugin, r.Kind, r.GUID, r.MinVersion)
-	}
+ d, err := dotnet.Scan(os.Args[1])
+ if err != nil {
+  log.Fatal(err)
+ }
+ for _, p := range d.Plugins {
+  fmt.Println(p.GUID, p.Name, p.Version)
+ }
+ for _, r := range d.Relations {
+  fmt.Println(r.Plugin, r.Kind, r.GUID, r.MinVersion)
+ }
 }
 ```
 
@@ -50,7 +50,7 @@ func main() {
 
 ## Requirements
 
-Go 1.27.3 or newer, plus `lefthook` and `gitleaks` on PATH if you want the git hooks.
+Go 1.27.4 or newer, plus `lefthook` and `gitleaks` on PATH if you want the git hooks.
 
 ```bash
 lefthook install
