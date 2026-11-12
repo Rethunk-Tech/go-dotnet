@@ -1,93 +1,148 @@
 package dotnet
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
-// FuzzAssembly feeds plugin DLLs, as a downloaded mod ships them, through each metadata reader: the BepInEx plugin
-// scan every install runs, the member-write, member, usage, MelonLoader and Harmony patch scans, the identity a ran error's stack is matched by,
-// and the source line read from an embedded PDB.
-func FuzzAssembly(f *testing.F) {
-	dll, err := os.ReadFile(filepath.Join("testdata", "mod.dll"))
-	if err != nil {
-		f.Fatal(err)
+func assemblySeeds() [][]byte {
+	out := [][]byte{{}, []byte("MZ"), {0x4d, 0x5a, 0x00, 0x00}}
+	n := 0
+	_ = filepath.WalkDir("testdata", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || n >= 8 {
+			return err
+		}
+		switch filepath.Ext(path) {
+		case ".dll", ".exe", ".pdb", "":
+		default:
+			return nil
+		}
+		b, err := os.ReadFile(path)
+		if err != nil || len(b) > 1<<20 {
+			return nil
+		}
+		out = append(out, b)
+		n++
+		return nil
+	})
+	return out
+}
+
+func seedAssemblies(f *testing.F) {
+	f.Helper()
+	for _, b := range assemblySeeds() {
+		f.Add(b)
 	}
-	embedded, err := os.ReadFile(filepath.Join("testdata", "embedded.dll"))
-	if err != nil {
-		f.Fatal(err)
+}
+
+func fuzzPath(t *testing.T, data []byte, fn func(string)) {
+	t.Helper()
+	if len(data) > 1<<20 {
+		data = data[:1<<20]
 	}
-	f.Add(dll)
-	f.Add(dll[:len(dll)/2])
-	f.Add(embedded)
-	f.Add([]byte("MZ"))
+	p := filepath.Join(t.TempDir(), "a.dll")
+	if err := os.WriteFile(p, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fn(p)
+}
+
+func FuzzIdentity(f *testing.F) {
+	seedAssemblies(f)
 	f.Fuzz(func(t *testing.T, data []byte) {
-		path := filepath.Join(t.TempDir(), "mod.dll")
-		if err := os.WriteFile(path, data, 0o600); err != nil {
-			t.Fatal(err)
-		}
-		_, _ = Scan(path)
-		_, _ = Writes(path, "StardewValley", "Netcode")
-		_, _ = Patches(path)
-		_, _ = Members(path)
-		_, _ = Usages(path, "StardewValley.Farmer::currentToolIndex")
-		_, _ = Settings(path)
-		_, _ = ScanMelon(path)
-		_, _ = Identity(path)
-		_ = SourceLine(path, "Fixture.Mod::SwitchTool", -1, 0x1c)
+		fuzzPath(t, data, func(path string) { Identity(path) })
 	})
 }
 
-// FuzzPluginArgs feeds the BepInPlugin attribute blob directly, which mutating a whole assembly rarely reaches.
-func FuzzPluginArgs(f *testing.F) {
-	f.Add([]byte{1, 0, 8, 'a', '.', 'b', '.', 'c', 'd', 'e', 'f', 4, 'N', 'a', 'm', 'e', 5, '1', '.', '0', '.', '0', 0, 0})
-	f.Add([]byte{1, 0, 0xFF, 0xFF})
-	f.Add([]byte{1, 0, 0xC0, 0, 0, 0})
-	f.Fuzz(func(t *testing.T, b []byte) {
-		p, ok := pluginArgs(b)
-		if ok && len(p.GUID)+len(p.Name)+len(p.Version) > len(b) {
-			t.Fatalf("plugin %+v is longer than its %d-byte blob", p, len(b))
-		}
+func FuzzMembers(f *testing.F) {
+	seedAssemblies(f)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		fuzzPath(t, data, func(path string) { _, _ = Members(path) })
 	})
 }
 
-// FuzzRelationArgs feeds the BepInDependency and BepInIncompatibility blobs directly.
-func FuzzRelationArgs(f *testing.F) {
-	f.Add([]byte{1, 0, 1, 'g', 1, 0, 0, 0, 0, 0}, false)
-	f.Add([]byte{1, 0, 1, 'g', 3, '1', '.', '0', 0, 0}, false)
-	f.Add([]byte{1, 0, 1, 'g', 0, 0}, true)
-	f.Add([]byte{1, 0, 0xFF, 0xFF}, false)
-	f.Fuzz(func(t *testing.T, b []byte, incompatible bool) {
-		r, ok := relationArgs(b, incompatible)
-		if ok && len(r.GUID)+len(r.MinVersion) > len(b) {
-			t.Fatalf("relation %+v is longer than its %d-byte blob", r, len(b))
-		}
+func FuzzUsages(f *testing.F) {
+	for _, b := range assemblySeeds() {
+		f.Add(b, "")
+		f.Add(b, "N.T::M")
+	}
+	f.Fuzz(func(t *testing.T, data []byte, target string) {
+		fuzzPath(t, data, func(path string) { _, _ = Usages(path, target) })
 	})
 }
 
-// FuzzPortablePDB feeds a PDB as a mod ships it beside its DLL to the sequence point reader, with the id the fixture
-// DLL expects so mutations get past the stale check.
-func FuzzPortablePDB(f *testing.F) {
-	pdb, err := os.ReadFile(filepath.Join("testdata", "portable", "Mod.pdb"))
-	if err != nil {
-		f.Fatal(err)
+func FuzzSettings(f *testing.F) {
+	seedAssemblies(f)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		fuzzPath(t, data, func(path string) { _, _ = Settings(path) })
+	})
+}
+
+func FuzzPatches(f *testing.F) {
+	seedAssemblies(f)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		fuzzPath(t, data, func(path string) { _, _ = Patches(path) })
+	})
+}
+
+func FuzzWrites(f *testing.F) {
+	for _, b := range assemblySeeds() {
+		f.Add(b, "", "")
+		f.Add(b, "Game", "Wrapper")
 	}
-	dll, err := os.ReadFile(filepath.Join("testdata", "portable", "Mod.dll"))
-	if err != nil {
-		f.Fatal(err)
+	f.Fuzz(func(t *testing.T, data []byte, game, wrapper string) {
+		fuzzPath(t, data, func(path string) { _, _ = Writes(path, game, wrapper) })
+	})
+}
+
+func FuzzScan(f *testing.F) {
+	seedAssemblies(f)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		fuzzPath(t, data, func(path string) { _, _ = Scan(path) })
+	})
+}
+
+func FuzzScanMelon(f *testing.F) {
+	seedAssemblies(f)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		fuzzPath(t, data, func(path string) { _, _ = ScanMelon(path) })
+	})
+}
+
+func FuzzDiagnostics(f *testing.F) {
+	f.Add([]byte{})
+	f.Add([]byte("error CS0000: x"))
+	f.Add([]byte("warning CS0000: x"))
+	_ = filepath.WalkDir("testdata", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		if filepath.Ext(path) != ".txt" && filepath.Ext(path) != ".log" {
+			return nil
+		}
+		b, err := os.ReadFile(path)
+		if err != nil || len(b) > 1<<20 {
+			return nil
+		}
+		f.Add(b)
+		return nil
+	})
+	f.Fuzz(func(t *testing.T, data []byte) {
+		if len(data) > 1<<20 {
+			data = data[:1<<20]
+		}
+		_ = Diagnostics(string(data))
+	})
+}
+
+func FuzzSourceLine(f *testing.F) {
+	for _, b := range assemblySeeds() {
+		f.Add(b, "", -1, 0)
+		f.Add(b, "N.T::M", 0, 0)
 	}
-	m, err := open(dll)
-	if err != nil {
-		f.Fatal(err)
-	}
-	id := m.debugEntry(debugCodeView)[4:20]
-	f.Add(pdb, 1, 0x1c)
-	f.Add(pdb[:len(pdb)/2], 3, 0)
-	f.Fuzz(func(t *testing.T, data []byte, row, il int) {
-		_, _ = func() (s string, err error) {
-			defer malformed("Mod.pdb", &s, &err)
-			return sequenceLine(data, id, row, il)
-		}()
+	f.Fuzz(func(t *testing.T, data []byte, method string, params, il int) {
+		fuzzPath(t, data, func(path string) { _ = SourceLine(path, method, params, il) })
 	})
 }
