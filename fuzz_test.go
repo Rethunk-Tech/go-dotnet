@@ -1,7 +1,6 @@
 package dotnet
 
 import (
-	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,24 +8,20 @@ import (
 
 func assemblySeeds() [][]byte {
 	out := [][]byte{{}, []byte("MZ"), {0x4d, 0x5a, 0x00, 0x00}}
-	n := 0
-	_ = filepath.WalkDir("testdata", func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || n >= 8 {
-			return err
-		}
-		switch filepath.Ext(path) {
-		case ".dll", ".exe", ".pdb", "":
-		default:
-			return nil
-		}
-		b, err := os.ReadFile(path)
+	for _, p := range []string{
+		"testdata/embedded.dll",
+		"testdata/mod.dll",
+		"testdata/portable/Mod.dll",
+		"testdata/portable/Mod.pdb",
+		"testdata/fuzz/FuzzAssembly/typeref-cycle",
+		"testdata/fuzz/FuzzAssembly/typespec-self",
+	} {
+		b, err := os.ReadFile(p)
 		if err != nil || len(b) > 1<<20 {
-			return nil
+			continue
 		}
 		out = append(out, b)
-		n++
-		return nil
-	})
+	}
 	return out
 }
 
@@ -115,20 +110,6 @@ func FuzzDiagnostics(f *testing.F) {
 	f.Add([]byte{})
 	f.Add([]byte("error CS0000: x"))
 	f.Add([]byte("warning CS0000: x"))
-	_ = filepath.WalkDir("testdata", func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		if filepath.Ext(path) != ".txt" && filepath.Ext(path) != ".log" {
-			return nil
-		}
-		b, err := os.ReadFile(path)
-		if err != nil || len(b) > 1<<20 {
-			return nil
-		}
-		f.Add(b)
-		return nil
-	})
 	f.Fuzz(func(t *testing.T, data []byte) {
 		if len(data) > 1<<20 {
 			data = data[:1<<20]
