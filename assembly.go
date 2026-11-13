@@ -558,7 +558,8 @@ func (m *assembly) attrType(table, row int) (ns, name string) {
 	return "", ""
 }
 
-// specRoot is the TypeDef, TypeRef or TypeSpec a TypeSpec signature instantiates.
+// specRoot is the TypeDef or TypeRef a TypeSpec signature instantiates; a chain of TypeSpecs, even one naming itself,
+// ends there or at maxDepth.
 func (m *assembly) specRoot(row, depth int) (int, int) {
 	if depth > maxDepth {
 		panic(tooDeep{})
@@ -576,7 +577,7 @@ func (m *assembly) specRoot(row, depth int) (int, int) {
 	}
 	v, _ := compressed(sig[1:])
 	table, r := decode(cTypeDefOrRef, v)
-	if table == tTypeSpec && r != row {
+	if table == tTypeSpec {
 		return m.specRoot(r, depth+1)
 	}
 	return table, r

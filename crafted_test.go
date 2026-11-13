@@ -60,3 +60,10 @@ func TestATypeSpecNamingItselfIsMalformedNotAStackOverflow(t *testing.T) {
 		t.Fatalf("Writes err = %v, want a malformed assembly", err)
 	}
 }
+
+func TestAMemberRefOnATypeSpecNamingItselfIsMalformedNotAStackOverflow(t *testing.T) {
+	path := craftedDLL(t, typeSpecSelf)
+	if _, err := Usages(path, ""); err == nil || !strings.Contains(err.Error(), "malformed assembly") {
+		t.Fatalf("Usages err = %v, want a malformed assembly", err)
+	}
+}
