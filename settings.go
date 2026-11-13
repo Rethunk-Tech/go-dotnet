@@ -172,6 +172,8 @@ func (r *settingReader) constant(code []byte, in instr) *constant {
 	switch {
 	case in.op == opLdstr:
 		return &constant{kind: 's', s: r.m.userString(in.arg)}
+	case in.op == opLdnull:
+		return &constant{kind: 's'}
 	case in.op >= opLdcI4M1 && in.op <= opLdcI48:
 		return &constant{kind: 'i', i: int64(in.op - opLdcI4M1 - 1)}
 	case in.op == opLdcI4S:
