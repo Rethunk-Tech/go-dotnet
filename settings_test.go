@@ -44,10 +44,10 @@ func TestSettingsReadsLdnullStringDefault(t *testing.T) {
 	im.set(tMethodSpec, 1, 1, 1)
 	m := im.done()
 	inst := []byte{0x0A, 0x01, 0x0E}
-	m.blobs = append([]byte{0, byte(len(inst))}, inst...)
+	m.blobs = append([]byte{0, byte(len(inst) & 0xFF)}, inst...)
 	us := func(s string) []byte {
 		b := make([]byte, 1+2*len(s)+1)
-		b[0] = byte(2*len(s) + 1)
+		b[0] = byte((2*len(s) + 1) & 0xFF)
 		for i := range s {
 			b[1+2*i] = s[i]
 		}

@@ -72,7 +72,7 @@ func TestWalkBoundsBranchJoins(t *testing.T) {
 	n := maxJoined + 1
 	code = make([]byte, 6+4*n)
 	code[0], code[1] = 0x16, 0x45
-	code[2], code[3], code[4], code[5] = byte(n), byte(n>>8), byte(n>>16), byte(n>>24)
+	code[2], code[3], code[4], code[5] = byte(n&0xFF), byte(n>>8&0xFF), byte(n>>16&0xFF), byte(n>>24&0xFF)
 	for i := range n {
 		off := uint32(i * 4)
 		code[6+4*i] = byte(off)

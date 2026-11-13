@@ -29,7 +29,7 @@ func TestUsagesNamesOwnGenericMemberRef(t *testing.T) {
 	im.set(tMemberRef, 1, 1, im.str("Set"))
 	m := im.done()
 	spec := []byte{0x15, 0x12, 0x04, 0x01, 0x08}
-	m.blobs = append([]byte{0, byte(len(spec))}, spec...)
+	m.blobs = append([]byte{0, byte(len(spec) & 0xFF)}, spec...)
 	u := m.usageNames()
 	if got := u.name(m, tMemberRef<<24|1); got != "Ns.Box::Set" {
 		t.Fatalf("name = %q", got)

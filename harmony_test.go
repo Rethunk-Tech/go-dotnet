@@ -56,9 +56,9 @@ func TestPatchesReadsMethodDefHarmonyCtor(t *testing.T) {
 	prefixSig := []byte{0x00, 0x00, 0x01}
 	value := append(append([]byte{1, 0}, ser("Game.Type")...), ser("Update")...)
 	blobs := []byte{0}
-	blobs = append(append(blobs, byte(len(ctorSig))), ctorSig...)
-	blobs = append(append(blobs, byte(len(prefixSig))), prefixSig...)
-	blobs = append(append(blobs, byte(len(value))), value...)
+	blobs = append(append(blobs, byte(len(ctorSig)&0xFF)), ctorSig...)
+	blobs = append(append(blobs, byte(len(prefixSig)&0xFF)), prefixSig...)
+	blobs = append(append(blobs, byte(len(value)&0xFF)), value...)
 	m.blobs = blobs
 	got, err := patches(m)
 	if err != nil {
