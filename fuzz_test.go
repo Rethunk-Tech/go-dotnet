@@ -1,8 +1,10 @@
 package dotnet
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 )
 
@@ -20,9 +22,22 @@ func assemblySeeds() [][]byte {
 		if err != nil || len(b) > 1<<20 {
 			continue
 		}
-		out = append(out, b)
+		out = append(out, corpusBytes(b))
 	}
 	return out
+}
+
+// corpusBytes is the image a "go test fuzz v1" corpus file encodes, or b itself when it is a raw file.
+func corpusBytes(b []byte) []byte {
+	lit, ok := bytes.CutPrefix(b, []byte("go test fuzz v1\n[]byte("))
+	if !ok {
+		return b
+	}
+	img, err := strconv.Unquote(string(bytes.TrimSuffix(bytes.TrimSpace(lit), []byte(")"))))
+	if err != nil {
+		return b
+	}
+	return []byte(img)
 }
 
 func seedAssemblies(f *testing.F) {
@@ -125,5 +140,37 @@ func FuzzSourceLine(f *testing.F) {
 	}
 	f.Fuzz(func(t *testing.T, data []byte, method string, params, il int) {
 		fuzzPath(t, data, func(path string) { _ = SourceLine(path, method, params, il) })
+	})
+}
+
+// FuzzSourceLineSiblingPDB pairs the portable fixture DLL with fuzzed bytes as its sibling PDB, which no other target
+// reaches: they write the DLL alone.
+func FuzzSourceLineSiblingPDB(f *testing.F) {
+	dll, err := os.ReadFile("testdata/portable/Mod.dll")
+	if err != nil {
+		f.Fatal(err)
+	}
+	pdb, err := os.ReadFile("testdata/portable/Mod.pdb")
+	if err != nil {
+		f.Fatal(err)
+	}
+	f.Add(pdb, 0)
+	f.Add(pdb[:len(pdb)/2], 0x10)
+	f.Add([]byte("BSJB"), 0)
+	f.Fuzz(func(t *testing.T, data []byte, il int) {
+		if len(data) > 1<<20 {
+			data = data[:1<<20]
+		}
+		dir := t.TempDir()
+		path := filepath.Join(dir, "Mod.dll")
+		if err := os.WriteFile(path, dll, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "Mod.pdb"), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = Identity(path)
+		_ = SourceLine(path, "Fixture.Patches.FarmerPatches::SkipUpdate", 0, il)
+		_ = SourceLine(path, "Fixture.Patches.FarmerPatches::SkipUpdate", -1, il)
 	})
 }
