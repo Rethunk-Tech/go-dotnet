@@ -102,7 +102,11 @@ func patchAttributes(m *assembly) (typeInfo, methodInfo map[int]patchInfo, metho
 	for a := range m.attributes("HarmonyLib") {
 		switch {
 		case a.name == "HarmonyPatch":
-			info, ok := m.harmonyPatchArgs(m.blob(m.cell(tMemberRef, a.ctor, 2)), m.value(a))
+			table, col := tMemberRef, 2
+			if a.kind == tMethodDef {
+				table, col = tMethodDef, 4
+			}
+			info, ok := m.harmonyPatchArgs(m.blob(m.cell(table, a.ctor, col)), m.value(a))
 			if !ok {
 				continue
 			}

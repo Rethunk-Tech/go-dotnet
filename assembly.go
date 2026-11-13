@@ -508,34 +508,92 @@ func (m *assembly) typeRefAt(row, depth int) (ns, name string) {
 }
 
 // attribute is one custom attribute whose constructor belongs to a type of a given namespace: its row, the
-// constructor's MemberRef row, the attributed element (owner table and row) and the attribute type's name.
+// constructor's MethodDef or MemberRef row, the attributed element (owner table and row), the attribute type's name
+// and the constructor's table.
 type attribute struct {
 	row, ctor, owner, def int
 	name                  string
+	kind                  int
 }
 
-// attributes walks the custom attributes constructed through a MemberRef of a TypeRef in namespace ns.
+// attributes walks the custom attributes constructed through a MethodDef or MemberRef of a type in namespace ns.
 func (m *assembly) attributes(ns string) iter.Seq[attribute] {
 	return func(yield func(attribute) bool) {
 		for row := 1; row <= m.rows[tCustomAttr]; row++ {
 			kind, ctor := decode(cCustomAttributeType, m.cell(tCustomAttr, row, 1))
-			if kind != tMemberRef {
-				continue
-			}
-			parent, ref := decode(cMemberRefParent, m.cell(tMemberRef, ctor, 0))
-			if parent != tTypeRef {
-				continue
-			}
-			typeNS, name := m.typeRef(ref)
+			typeNS, name := m.ctorType(kind, ctor)
 			if typeNS != ns {
 				continue
 			}
 			owner, def := decode(cHasCustomAttribute, m.cell(tCustomAttr, row, 0))
-			if !yield(attribute{row, ctor, owner, def, name}) {
+			if !yield(attribute{row, ctor, owner, def, name, kind}) {
 				return
 			}
 		}
 	}
+}
+
+// ctorType names the attribute type a CustomAttribute constructor (MethodDef or MemberRef) belongs to.
+func (m *assembly) ctorType(kind, ctor int) (ns, name string) {
+	switch kind {
+	case tMemberRef:
+		return m.attrType(decode(cMemberRefParent, m.cell(tMemberRef, ctor, 0)))
+	case tMethodDef:
+		if t := m.typeDefOfMethod(ctor); t != 0 {
+			return m.str(m.cell(tTypeDef, t, 2)), m.str(m.cell(tTypeDef, t, 1))
+		}
+	}
+	return "", ""
+}
+
+func (m *assembly) attrType(table, row int) (ns, name string) {
+	switch table {
+	case tTypeRef:
+		return m.typeRef(row)
+	case tTypeDef:
+		return m.str(m.cell(tTypeDef, row, 2)), m.str(m.cell(tTypeDef, row, 1))
+	case tTypeSpec:
+		return m.attrType(m.specRoot(row, 0))
+	}
+	return "", ""
+}
+
+// specRoot is the TypeDef, TypeRef or TypeSpec a TypeSpec signature instantiates.
+func (m *assembly) specRoot(row, depth int) (int, int) {
+	if depth > maxDepth {
+		panic(tooDeep{})
+	}
+	sig := m.blob(m.cell(tTypeSpec, row, 0))
+	for len(sig) > 1 && (sig[0] == 0x1F || sig[0] == 0x20) {
+		_, n := compressed(sig[1:])
+		sig = sig[1+n:]
+	}
+	if len(sig) > 1 && sig[0] == 0x15 {
+		sig = sig[1:]
+	}
+	if len(sig) < 2 || (sig[0] != 0x12 && sig[0] != 0x11) {
+		return 0, 0
+	}
+	v, _ := compressed(sig[1:])
+	table, r := decode(cTypeDefOrRef, v)
+	if table == tTypeSpec && r != row {
+		return m.specRoot(r, depth+1)
+	}
+	return table, r
+}
+
+func (m *assembly) typeDefOfMethod(md int) int {
+	for t := 1; t <= m.rows[tTypeDef]; t++ {
+		start := int(m.cell(tTypeDef, t, 5))
+		last := m.rows[tMethodDef] + 1
+		if t < m.rows[tTypeDef] {
+			last = int(m.cell(tTypeDef, t+1, 5))
+		}
+		if md >= start && md < last {
+			return t
+		}
+	}
+	return 0
 }
 
 // value is the attribute's serialized arguments.
