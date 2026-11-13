@@ -29,6 +29,13 @@ func TestPatchesReadsHarmonyAttributes(t *testing.T) {
 	}
 }
 
+func TestTypeNameKeepsGenericArguments(t *testing.T) {
+	in := "System.Collections.Generic.List`1[[System.Int32, mscorlib, Version=4.0.0.0]], mscorlib, Version=4.0.0.0"
+	if got := typeName(in); got != "System.Collections.Generic.List`1[[System.Int32]]" {
+		t.Fatalf("typeName = %q", got)
+	}
+}
+
 func TestPatchKindByName(t *testing.T) {
 	for name, want := range map[string]string{"Prefix": PatchPrefix, "HarmonyFinalizer": "", "Other": ""} {
 		if got := PatchKindByName(name); got != want {

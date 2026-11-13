@@ -242,8 +242,36 @@ func (p patchInfo) withStrings(strs []string) patchInfo {
 	return p
 }
 
-// typeName drops the assembly from a serialized type name ("Namespace.Type, Assembly-CSharp, Version=…").
+// typeName drops ", Assembly, Version=…" from a serialized type name, including each generic argument.
+// CLR wraps every generic argument in [], so a comma at even bracket depth is an assembly qualifier
+// and one at odd depth separates arguments.
 func typeName(s string) string {
-	name, _, _ := strings.Cut(s, ",")
-	return strings.TrimSpace(name)
+	var b strings.Builder
+	depth := 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '[':
+			depth++
+			b.WriteByte('[')
+		case ']':
+			if depth > 0 {
+				depth--
+			}
+			b.WriteByte(']')
+		case ',':
+			if depth%2 == 0 {
+				if depth == 0 {
+					return strings.TrimSpace(b.String())
+				}
+				for i+1 < len(s) && s[i+1] != ']' {
+					i++
+				}
+				continue
+			}
+			b.WriteByte(',')
+		default:
+			b.WriteByte(s[i])
+		}
+	}
+	return strings.TrimSpace(b.String())
 }
