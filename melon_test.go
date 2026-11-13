@@ -57,3 +57,14 @@ func TestScanMelonReadsTheAssemblyNameAndReferences(t *testing.T) {
 		t.Fatalf("got %+v, %v", m, err)
 	}
 }
+
+func TestMelonInfoReadsANullAuthor(t *testing.T) {
+	var m Melon
+	info := append([]byte{1, 0}, ser("Better.Core")...)
+	info = append(info, ser("Better Hands")...)
+	info = append(info, ser("1.2.0")...)
+	m.readAttribute("MelonInfo", append(info, 0xFF, 0xFF))
+	if m.Name != "Better Hands" || m.Version != "1.2.0" || m.Author != "" || !m.HasInfo {
+		t.Fatalf("got %+v", m)
+	}
+}

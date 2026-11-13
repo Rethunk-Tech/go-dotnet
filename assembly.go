@@ -1152,6 +1152,9 @@ func serString(b []byte) (s string, rest []byte, ok bool) {
 	if len(b) == 0 {
 		return "", nil, false
 	}
+	if b[0] == 0xFF { // a null string, such as MelonInfo's omitted author
+		return "", b[1:], true
+	}
 	var head [4]byte
 	copy(head[:], b)
 	n, size := compressed(head[:])
