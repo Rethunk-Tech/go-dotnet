@@ -62,12 +62,9 @@ func (u usageNames) name(m *assembly, token uint32) string {
 		}
 	case tMemberRef:
 		table, parent := decode(cMemberRefParent, m.cell(tMemberRef, row, 0))
-		ns, owner := m.typeOf(table, parent)
+		owner := m.memberRefOwner(table, parent)
 		if owner == "" {
 			return ""
-		}
-		if ns != "" {
-			owner = ns + "." + owner
 		}
 		return owner + "::" + m.str(m.cell(tMemberRef, row, 1))
 	case tMethodSpec:
@@ -76,6 +73,22 @@ func (u usageNames) name(m *assembly, token uint32) string {
 			return u.name(m, tMethodDef<<24|method>>1)
 		}
 		return u.name(m, tMemberRef<<24|method>>1)
+	}
+	return ""
+}
+
+func (m *assembly) memberRefOwner(table, row int) string {
+	switch table {
+	case tTypeDef:
+		return m.typeDefName(row)
+	case tTypeRef:
+		ns, name := m.typeRef(row)
+		if ns != "" {
+			return ns + "." + name
+		}
+		return name
+	case tTypeSpec:
+		return m.memberRefOwner(m.specRoot(row, 0))
 	}
 	return ""
 }
