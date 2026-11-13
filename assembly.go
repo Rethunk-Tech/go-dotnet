@@ -791,7 +791,7 @@ func (w *walker) branch(target int) {
 	if j, ok := w.joins[target]; ok {
 		w.joins[target] = join(j, w.stack)
 	} else {
-		if w.joined += len(w.stack); w.joined > maxJoined {
+		if w.joined += max(len(w.stack), 1); w.joined > maxJoined {
 			panic(tooDeep{})
 		}
 		w.joins[target] = slices.Clone(w.stack)

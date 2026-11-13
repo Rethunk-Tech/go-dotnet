@@ -68,6 +68,21 @@ func TestWalkBoundsBranchJoins(t *testing.T) {
 	mustPanicTooDeep(t, "stack depth", func() {
 		(&scan{m: &assembly{}, written: map[string]bool{}, refs: map[uint32]ref{}}).walk(code, map[int]bool{})
 	})
+	// ldc.i4.0; switch: generic pops the selector first, so each join was counted as 0.
+	n := maxJoined + 1
+	code = make([]byte, 6+4*n)
+	code[0], code[1] = 0x16, 0x45
+	code[2], code[3], code[4], code[5] = byte(n), byte(n>>8), byte(n>>16), byte(n>>24)
+	for i := range n {
+		off := uint32(i * 4)
+		code[6+4*i] = byte(off)
+		code[7+4*i] = byte(off >> 8)
+		code[8+4*i] = byte(off >> 16)
+		code[9+4*i] = byte(off >> 24)
+	}
+	mustPanicTooDeep(t, "empty-stack switch", func() {
+		(&scan{m: &assembly{}, written: map[string]bool{}, refs: map[uint32]ref{}}).walk(code, map[int]bool{})
+	})
 }
 
 func TestSignatureCountsFitTheBytesLeft(t *testing.T) {
