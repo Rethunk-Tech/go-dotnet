@@ -108,9 +108,16 @@ func (r *settingReader) body(code []byte) {
 	steps := r.steps(code)
 	var cur *pendingBind
 	for i, st := range steps {
-		if (cur == nil || i >= cur.after) && i+2 < len(steps) && isString(steps[i].c) && isString(steps[i+1].c) && steps[i+2].c != nil {
-			cur = &pendingBind{section: steps[i].c.s, key: steps[i+1].c.s, def: *steps[i+2].c, after: i + 3}
-			continue
+		if i+2 < len(steps) && isString(steps[i].c) && isString(steps[i+1].c) && steps[i+2].c != nil {
+			if cur == nil {
+				cur = &pendingBind{section: steps[i].c.s, key: steps[i+1].c.s, def: *steps[i+2].c, after: i + 3}
+				continue
+			}
+			if i >= cur.after {
+				// A later triple is helper arguments, not a second Bind.
+				cur.after = i + 3
+				continue
+			}
 		}
 		if cur == nil || i < cur.after {
 			continue

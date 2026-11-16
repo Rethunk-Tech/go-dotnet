@@ -68,6 +68,49 @@ func TestSettingsReadsLdnullStringDefault(t *testing.T) {
 	}
 }
 
+func TestSettingsKeepsBindPastHelperArgs(t *testing.T) {
+	im := newImage()
+	im.table(tTypeRef, 1, 3)
+	im.set(tTypeRef, 1, 1, im.str("ConfigFile"))
+	im.set(tTypeRef, 1, 2, im.str("BepInEx.Configuration"))
+	im.table(tMemberRef, 2, 3)
+	im.set(tMemberRef, 1, 0, 1<<3|1)
+	im.set(tMemberRef, 1, 1, im.str("Bind"))
+	im.set(tMemberRef, 2, 0, 1<<3|1)
+	im.set(tMemberRef, 2, 1, im.str("Make"))
+	im.table(tMethodSpec, 1, 2)
+	im.set(tMethodSpec, 1, 0, 1<<1|1)
+	im.set(tMethodSpec, 1, 1, 1)
+	m := im.done()
+	inst := []byte{0x0A, 0x01, 0x02}
+	m.blobs = append([]byte{0, byte(len(inst) & 0xFF)}, inst...)
+	us := func(s string) []byte {
+		b := make([]byte, 1+2*len(s)+1)
+		b[0] = byte((2*len(s) + 1) & 0xFF)
+		for i := range s {
+			b[1+2*i] = s[i]
+		}
+		return b
+	}
+	m.us = append(append(append(append([]byte{0}, us("General")...), us("Enabled")...), us("foo")...), us("bar")...)
+	code := []byte{
+		0x72, 0x01, 0x00, 0x00, 0x70,
+		0x72, 0x11, 0x00, 0x00, 0x70,
+		0x17,
+		0x72, 0x21, 0x00, 0x00, 0x70,
+		0x72, 0x29, 0x00, 0x00, 0x70,
+		0x1F, 0x63,
+		0x28, 0x02, 0x00, 0x00, 0x0A,
+		0x28, 0x01, 0x00, 0x00, 0x2B,
+	}
+	r := settingReader{m: m, u: m.usageNames(), seen: map[string]bool{}}
+	r.body(code)
+	want := []Setting{{Section: "General", Key: "Enabled", Type: "bool", Default: "true"}}
+	if !reflect.DeepEqual(r.out, want) {
+		t.Fatalf("Settings: got %+v, want %+v", r.out, want)
+	}
+}
+
 func TestSettingsRejectsFilesThatAreNotAssemblies(t *testing.T) {
 	if _, err := Settings("settings.go"); err == nil {
 		t.Fatal("Settings read a Go file as an assembly")
