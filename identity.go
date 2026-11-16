@@ -70,7 +70,12 @@ func (m *assembly) debugEntry(typ uint32) []byte {
 	for e := m.debug; len(e) >= debugEntrySize; e = e[debugEntrySize:] {
 		if le32(e[12:]) == typ {
 			size, ptr := le32(e[16:]), le32(e[24:])
-			return m.img[ptr : ptr+size]
+			end := uint64(ptr) + uint64(size)
+			// img[ptr:ptr] is non-nil, and a PointerToRawData past img panics; both mean no payload.
+			if size == 0 || end > uint64(len(m.img)) {
+				return nil
+			}
+			return m.img[ptr:end]
 		}
 	}
 	return nil
