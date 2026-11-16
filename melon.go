@@ -52,7 +52,8 @@ func (mel *Melon) readAttribute(name string, blob []byte) {
 		return
 	}
 	blob = blob[2:]
-	switch name {
+	// A class is declared as MelonInfoAttribute and written as MelonInfo, but metadata keeps the declared name.
+	switch strings.TrimSuffix(name, "Attribute") {
 	case "MelonInfo":
 		// MelonInfo(Type, name, version, author, downloadLink): the type is serialized as its name string.
 		var args [4]string
