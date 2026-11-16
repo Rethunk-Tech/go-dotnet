@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -41,13 +42,24 @@ func scanMelon(m *assembly) (out Melon, err error) {
 	}
 	for a := range m.attributes("MelonLoader") {
 		if a.owner == tAssembly {
-			out.readAttribute(a.name, m.value(a))
+			out.readAttribute(a.name, m.value(a), m.ctorSig(a))
 		}
 	}
 	return out, nil
 }
 
-func (mel *Melon) readAttribute(name string, blob []byte) {
+// ctorSig is the signature of the constructor a custom attribute names; the blob records no argument types of its own.
+func (m *assembly) ctorSig(a attribute) []byte {
+	switch a.kind {
+	case tMemberRef:
+		return m.blob(m.cell(tMemberRef, a.ctor, 2))
+	case tMethodDef:
+		return m.blob(m.cell(tMethodDef, a.ctor, 4))
+	}
+	return nil
+}
+
+func (mel *Melon) readAttribute(name string, blob, sig []byte) {
 	if len(blob) < 2 || blob[0] != 1 || blob[1] != 0 {
 		return
 	}
@@ -55,16 +67,32 @@ func (mel *Melon) readAttribute(name string, blob []byte) {
 	// A class is declared as MelonInfoAttribute and written as MelonInfo, but metadata keeps the declared name.
 	switch strings.TrimSuffix(name, "Attribute") {
 	case "MelonInfo":
-		// MelonInfo(Type, name, version, author, downloadLink): the type is serialized as its name string.
-		var args [4]string
+		// MelonInfo(Type, name, version, author, downloadLink): the type is serialized as its name string. The version
+		// is a string in one ctor and major, minor and patch ints in the other.
 		_, rest, ok := serString(blob)
-		for i := range args {
-			if !ok {
+		if !ok {
+			return
+		}
+		var mod, version string
+		if mod, rest, ok = serString(rest); !ok {
+			return
+		}
+		if melonInfoIntVersion(sig) {
+			if len(rest) < 12 {
 				return
 			}
-			args[i], rest, ok = serString(rest)
+			version = strconv.Itoa(int(binary.LittleEndian.Uint32(rest))) + "." +
+				strconv.Itoa(int(binary.LittleEndian.Uint32(rest[4:]))) + "." +
+				strconv.Itoa(int(binary.LittleEndian.Uint32(rest[8:])))
+			rest = rest[12:]
+		} else if version, rest, ok = serString(rest); !ok {
+			return
 		}
-		mel.Name, mel.Version, mel.Author, mel.HasInfo = args[0], args[1], args[2], true
+		author, _, ok := serString(rest)
+		if !ok {
+			return
+		}
+		mel.Name, mel.Version, mel.Author, mel.HasInfo = mod, version, author, true
 	case "MelonPriority":
 		if len(blob) >= 4 {
 			// The blob is a signed 32-bit integer.
@@ -76,6 +104,42 @@ func (mel *Melon) readAttribute(name string, blob []byte) {
 	case "MelonOptionalDependencies":
 		mel.Optional = append(mel.Optional, stringArray(blob)...)
 	}
+}
+
+// melonInfoIntVersion reports whether a MelonInfo ctor takes the version as major, minor and patch ints: the blob
+// records no argument types, so the shape it was written with has to come from the signature.
+func melonInfoIntVersion(sig []byte) bool {
+	if len(sig) < 3 {
+		return false
+	}
+	p := 1
+	if sig[0]&0x10 != 0 { // a generic method's type parameter count precedes its parameter count
+		_, n := compressed(sig[p:])
+		p += n
+	}
+	if p >= len(sig) {
+		return false
+	}
+	_, n := compressed(sig[p:])
+	p += n + 1    // past the parameter count and the void return
+	for range 2 { // System.Type for typeof(Melon), then the melon's name
+		if p >= len(sig) {
+			return false
+		}
+		el := sig[p]
+		p++
+		if el == 0x11 || el == 0x12 { // a TypeDefOrRef index follows
+			if p >= len(sig) {
+				return false
+			}
+			_, n := compressed(sig[p:])
+			if p+n > len(sig) {
+				return false
+			}
+			p += n
+		}
+	}
+	return p < len(sig) && sig[p] == 0x08
 }
 
 // stringArray reads a params string[] argument: a 4-byte count (all ones for null), then each string.
