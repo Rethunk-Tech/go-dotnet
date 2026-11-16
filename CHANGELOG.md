@@ -6,6 +6,8 @@ Notable changes to `go-dotnet`. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-16
+
 ### Changed
 
 - **Breaking:** `Identity` and `SourceLine` return an error, `ErrTooLarge` or `ErrNotAssembly`, where they returned empty strings, as HUMANS.md already documented.
