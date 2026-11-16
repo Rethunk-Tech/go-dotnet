@@ -62,7 +62,7 @@ func fuzzPath(t *testing.T, data []byte, fn func(string)) {
 func FuzzIdentity(f *testing.F) {
 	seedAssemblies(f)
 	f.Fuzz(func(t *testing.T, data []byte) {
-		fuzzPath(t, data, func(path string) { Identity(path) })
+		fuzzPath(t, data, func(path string) { _, _, _ = Identity(path) })
 	})
 }
 
@@ -139,7 +139,7 @@ func FuzzSourceLine(f *testing.F) {
 		f.Add(b, "N.T::M", 0, 0)
 	}
 	f.Fuzz(func(t *testing.T, data []byte, method string, params, il int) {
-		fuzzPath(t, data, func(path string) { _ = SourceLine(path, method, params, il) })
+		fuzzPath(t, data, func(path string) { _, _ = SourceLine(path, method, params, il) })
 	})
 }
 
@@ -169,8 +169,8 @@ func FuzzSourceLineSiblingPDB(f *testing.F) {
 		if err := os.WriteFile(filepath.Join(dir, "Mod.pdb"), data, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		_, _ = Identity(path)
-		_ = SourceLine(path, "Fixture.Patches.FarmerPatches::SkipUpdate", 0, il)
-		_ = SourceLine(path, "Fixture.Patches.FarmerPatches::SkipUpdate", -1, il)
+		_, _, _ = Identity(path)
+		_, _ = SourceLine(path, "Fixture.Patches.FarmerPatches::SkipUpdate", 0, il)
+		_, _ = SourceLine(path, "Fixture.Patches.FarmerPatches::SkipUpdate", -1, il)
 	})
 }

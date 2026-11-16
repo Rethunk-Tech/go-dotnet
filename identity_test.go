@@ -2,6 +2,7 @@ package dotnet
 
 import (
 	"encoding/binary"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,8 +27,9 @@ func TestIdentityReadsTheMVIDAndWhichSymbolsShip(t *testing.T) {
 		{filepath.Join("testdata", "embedded.dll"), "1689bfe579104a1b9a307c2e9fbe0fc2", SymbolsPortable},
 		{windows, "6a29e3a0e29c447cb42ccbb83ef95d5b", SymbolsWindows},
 	} {
-		if mvid, symbols := Identity(c.path); mvid != c.mvid || symbols != c.symbols {
-			t.Errorf("%s: %q %q, want %q %q", c.path, mvid, symbols, c.mvid, c.symbols)
+		mvid, symbols, err := Identity(c.path)
+		if err != nil || mvid != c.mvid || symbols != c.symbols {
+			t.Errorf("%s: %q %q %v, want %q %q", c.path, mvid, symbols, err, c.mvid, c.symbols)
 		}
 	}
 }
@@ -37,9 +39,9 @@ func TestIdentityZeroSizeEmbeddedPDBIsNotPortable(t *testing.T) {
 		binary.LittleEndian.PutUint32(e[12:], debugEmbeddedPDB)
 		binary.LittleEndian.PutUint32(e[16:], 0)
 	})
-	mvid, symbols := Identity(path)
-	if mvid != "6a29e3a0e29c447cb42ccbb83ef95d5b" || symbols != "" {
-		t.Fatalf("Identity = %q %q, want MVID and no symbols", mvid, symbols)
+	mvid, symbols, err := Identity(path)
+	if err != nil || mvid != "6a29e3a0e29c447cb42ccbb83ef95d5b" || symbols != "" {
+		t.Fatalf("Identity = %q %q %v, want MVID and no symbols", mvid, symbols, err)
 	}
 }
 
@@ -49,9 +51,32 @@ func TestIdentityBadDebugPointerKeepsMVID(t *testing.T) {
 			binary.LittleEndian.PutUint32(e[24:], 0x7fffffff)
 		}
 	})
-	mvid, symbols := Identity(path)
-	if mvid != "1689bfe579104a1b9a307c2e9fbe0fc2" || symbols != "" {
-		t.Fatalf("Identity = %q %q, want MVID and no symbols", mvid, symbols)
+	mvid, symbols, err := Identity(path)
+	if err != nil || mvid != "1689bfe579104a1b9a307c2e9fbe0fc2" || symbols != "" {
+		t.Fatalf("Identity = %q %q %v, want MVID and no symbols", mvid, symbols, err)
+	}
+}
+
+func TestIdentityOverTheCapWrapsErrTooLarge(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "big.dll")
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Truncate(path, MaxAssemblyBytes+1); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Identity(path); !errors.Is(err, ErrTooLarge) {
+		t.Fatalf("Identity err = %v, want ErrTooLarge", err)
+	}
+}
+
+func TestIdentityAFileThatIsNoAssemblyWrapsErrNotAssembly(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "x.dll")
+	if err := os.WriteFile(path, []byte("MZ"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Identity(path); !errors.Is(err, ErrNotAssembly) {
+		t.Fatalf("Identity err = %v, want ErrNotAssembly", err)
 	}
 }
 

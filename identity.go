@@ -28,11 +28,11 @@ const (
 // Identity reads the module version id of the assembly at path, as the runtime prints it in a stack frame it has no
 // symbols for ("<mvid>:IL_002E", Guid.ToString("N")), and which symbols it ships: SymbolsPortable, SymbolsWindows or "".
 // A file that is no assembly has neither.
-func Identity(path string) (mvid, symbols string) {
+func Identity(path string) (mvid, symbols string, err error) {
 	type ids struct{ mvid, symbols string }
 	a, err := readFile(path)
 	if err != nil {
-		return "", ""
+		return "", "", err
 	}
 	got, err := query(a, func(a *assembly) (ids, error) {
 		out := ids{mvid: a.mvid()}
@@ -42,13 +42,13 @@ func Identity(path string) (mvid, symbols string) {
 		return out, nil
 	})
 	if err != nil {
-		return "", ""
+		return "", "", err
 	}
 	mvid, symbols = got.mvid, got.symbols
 	if symbols == "" {
 		symbols = siblingPDB(path)
 	}
-	return mvid, symbols
+	return mvid, symbols, nil
 }
 
 // mvid formats the Module table's Mvid as Guid.ToString("N") does: the first three fields are little-endian.

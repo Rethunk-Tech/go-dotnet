@@ -22,9 +22,12 @@ const (
 // it. It is "" when the assembly has none, when the PDB is not the one built with this DLL (a weaver rewrote the DLL
 // and left the PDB), when the name matches no method or several overloads, and when the method has no sequence point
 // at or before il.
-func SourceLine(path, method string, params, il int) string {
-	s, _ := sourceLine(path, method, params, il)
-	return s
+func SourceLine(path, method string, params, il int) (string, error) {
+	s, err := sourceLine(path, method, params, il)
+	if errors.Is(err, ErrTooLarge) || errors.Is(err, ErrNotAssembly) || errors.Is(err, ErrMalformed) {
+		return "", err
+	}
+	return s, nil
 }
 
 func sourceLine(path, method string, params, il int) (string, error) {

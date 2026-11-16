@@ -2,6 +2,7 @@ package dotnet
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -56,8 +57,32 @@ func TestSourceLineReadsPortableSymbols(t *testing.T) {
 		if !filepath.IsAbs(path) {
 			path = filepath.Join("testdata", filepath.FromSlash(path))
 		}
-		if got := SourceLine(path, c.method, c.params, c.il); got != c.want {
-			t.Errorf("%s %s @%#x = %q, want %q", c.dll, c.method, c.il, got, c.want)
+		got, err := SourceLine(path, c.method, c.params, c.il)
+		if err != nil || got != c.want {
+			t.Errorf("%s %s @%#x = %q %v, want %q", c.dll, c.method, c.il, got, err, c.want)
 		}
+	}
+}
+
+func TestSourceLineOverTheCapWrapsErrTooLarge(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "big.dll")
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Truncate(path, MaxAssemblyBytes+1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SourceLine(path, "T::M", 0, 0); !errors.Is(err, ErrTooLarge) {
+		t.Fatalf("SourceLine err = %v, want ErrTooLarge", err)
+	}
+}
+
+func TestSourceLineAFileThatIsNoAssemblyWrapsErrNotAssembly(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "x.dll")
+	if err := os.WriteFile(path, []byte("MZ"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SourceLine(path, "T::M", 0, 0); !errors.Is(err, ErrNotAssembly) {
+		t.Fatalf("SourceLine err = %v, want ErrNotAssembly", err)
 	}
 }
