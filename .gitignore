@@ -3,3 +3,6 @@
 /bin/
 *.test
 coverage.out
+
+# gremlins mutation-test working copies
+.gremlins-tmp*/
