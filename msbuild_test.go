@@ -20,3 +20,11 @@ Build FAILED.
 		t.Fatalf("diagnostics = %+v", got)
 	}
 }
+
+func TestDiagnosticsReadsFatalError(t *testing.T) {
+	got := Diagnostics("Plugin.cs(1,1): fatal error CS0001: msg\n")
+	want := []Diagnostic{{File: "Plugin.cs", Line: 1, Column: 1, Severity: "error", Code: "CS0001", Message: "msg"}}
+	if !slices.Equal(got, want) {
+		t.Fatalf("diagnostics = %+v", got)
+	}
+}

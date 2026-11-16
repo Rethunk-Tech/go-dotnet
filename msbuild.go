@@ -18,7 +18,7 @@ type Diagnostic struct {
 }
 
 // MSBuild's canonical form: file(line,col): error CODE: text [project].
-var msbuildLine = regexp.MustCompile(`^\s*(.+?)\((\d+),(\d+)(?:,\d+,\d+)?\): (error|warning) ([A-Za-z]+\d+): (.*?)(?: \[[^\]]+\])?$`)
+var msbuildLine = regexp.MustCompile(`^\s*(.+?)\((\d+),(\d+)(?:,\d+,\d+)?\): ((?:fatal )?error|warning) ([A-Za-z]+\d+): (.*?)(?: \[[^\]]+\])?$`)
 
 // Diagnostics reads MSBuild's output for errors and warnings, each once and in order.
 func Diagnostics(out string) []Diagnostic {
@@ -30,7 +30,11 @@ func Diagnostics(out string) []Diagnostic {
 		}
 		row, _ := strconv.Atoi(m[2])
 		col, _ := strconv.Atoi(m[3])
-		p := Diagnostic{File: m[1], Line: row, Column: col, Severity: m[4], Code: m[5], Message: m[6]}
+		sev := m[4]
+		if sev == "fatal error" {
+			sev = "error"
+		}
+		p := Diagnostic{File: m[1], Line: row, Column: col, Severity: sev, Code: m[5], Message: m[6]}
 		if !slices.Contains(problems, p) {
 			problems = append(problems, p)
 		}
