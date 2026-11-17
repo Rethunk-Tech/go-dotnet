@@ -78,7 +78,6 @@ type constant struct {
 	s    string
 	i    int64
 	f    float64
-	r4   bool
 }
 
 // step is one instruction in a body, with the constant it pushes if it pushes one. Conversions are dropped, so a
@@ -190,7 +189,7 @@ func (r *settingReader) constant(code []byte, in instr) *constant {
 	case in.op == opLdcI8:
 		return &constant{kind: 'i', i: twos(int64(le32(code[in.at+4:])), 32)<<32 | int64(le32(code[in.at:]))}
 	case in.op == opLdcR4:
-		return &constant{kind: 'f', f: float64(math.Float32frombits(in.arg)), r4: true}
+		return &constant{kind: 'f', f: float64(math.Float32frombits(in.arg))}
 	case in.op == opLdcR8:
 		return &constant{kind: 'f', f: math.Float64frombits(binary.LittleEndian.Uint64(code[in.at:]))}
 	}
