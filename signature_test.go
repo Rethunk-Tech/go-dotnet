@@ -46,7 +46,7 @@ func TestSignatureNamesFollowTheModuleTables(t *testing.T) {
 	im.set(tGenParam, 2, 3, im.str("TResult"))
 	m := im.done()
 	spec := []byte{0x1D, 0x08}
-	m.blobs = append([]byte{0, byte(len(spec))}, spec...)
+	m.blobs = append([]byte{0, byte(len(spec) & 0xFF)}, spec...)
 	n := sigNames{m: m, typ: 1, method: 1}
 	if got, _ := n.csType([]byte{0x12, 0x06}, 0); got != "int[]" {
 		t.Fatalf("TypeSpec = %q", got)

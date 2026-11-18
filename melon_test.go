@@ -2,6 +2,7 @@ package dotnet
 
 import (
 	"encoding/binary"
+	"math"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -146,8 +147,8 @@ func TestScanMelonReadsMelonLoaderAssemblyAttributes(t *testing.T) {
 	infoSig, prioSig := melonInfoSig(false), []byte{0x20, 1, 0x01, 0x08}
 	blobs := []byte{0}
 	put := func(b []byte) uint32 {
-		at := uint32(len(blobs))
-		blobs = append(append(blobs, byte(len(b))), b...)
+		at := uint32(len(blobs) & math.MaxUint32)
+		blobs = append(append(blobs, byte(len(b)&0xFF)), b...)
 		return at
 	}
 	infoSigAt, prioSigAt := put(infoSig), put(prioSig)
