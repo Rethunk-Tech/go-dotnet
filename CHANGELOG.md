@@ -6,6 +6,10 @@ Notable changes to `go-dotnet`. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The lint script removes the downloaded `actionlint` before running it.
+
 ## [0.4.0] - 2026-11-16
 
 ### Changed
@@ -40,6 +44,12 @@ Notable changes to `go-dotnet`. The format follows
 - `Member.Types` and `Member.Returns`: a method's parameter types and return type, or a field's type, as C# writes
   them.
 
+## [0.1.1] - 2026-10-31
+
+### Changed
+
+- Test fixtures build for net10.0, the current LTS, and Go modules are updated. No change to the API.
+
 ## [0.1.0] - 2026-10-29
 
 ### Added
@@ -49,9 +59,11 @@ Notable changes to `go-dotnet`. The format follows
 - `ErrNotAssembly`, `ErrMalformed`, `ErrTooLarge` and the `MaxAssemblyBytes` and `MaxPDBBytes` caps.
 - Fuzz targets for the metadata reader, the attribute blobs and the portable PDB reader.
 
-[Unreleased]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.1.1...v0.2.0
+[0.1.1]: https://github.com/Rethunk-Tech/go-dotnet/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Rethunk-Tech/go-dotnet/releases/tag/v0.1.0
